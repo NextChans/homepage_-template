@@ -12,7 +12,9 @@
 - [ ] `content/site.ts` → `company.tel`, `company.fax`, `company.email`
 - [ ] `content/site.ts` → `company.privacyOfficer` (개인정보 보호책임자 성명·연락처)
 - [ ] `.env` → `NEXT_PUBLIC_SITE_URL` (실도메인)
-- [ ] `app/privacy/page.tsx` → 4항 수탁자·리전·국외이전, 8항 시행일
+- [x] `app/privacy/page.tsx` → 4항 보관 리전 = 서울(`ap-northeast-2`) 반영 (2026-09-10)
+- [ ] `app/privacy/page.tsx` → 4항 **국외 이전 해당 여부 법무 확정** 후 "검토 진행 중" 문구 교체
+- [ ] `app/privacy/page.tsx` → 8항 시행일
 - [ ] `components/site-footer.tsx` 하단 "본 사이트는 템플릿 예시입니다" 고지 **제거**
 - [ ] `app/contact/page.tsx` 의 Supabase 미설정 개발 안내 배너 제거 검토
 

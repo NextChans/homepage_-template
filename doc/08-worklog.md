@@ -89,6 +89,27 @@
 Personal Access Token 과 DB 비밀번호가 추가로 필요해 노출면이 넓다. SQL Editor 는 키를
 아무 곳으로도 내보내지 않는다. (이 컨테이너에는 supabase CLI 가 없고 psql 만 있다.)
 
+### 리전 확정 (서울) 반영
+
+사용자가 Supabase 리전을 **서울(`ap-northeast-2`)** 로 알려줬다. 반영하면서 두 가지가 나왔다.
+
+**1. Vercel 함수 기본 리전이 `iad1`(버지니아)이다.** 그대로 두면 문의 제출마다 서울 DB ↔ 미국
+함수를 왕복한다. `vercel.json` 에 `{"regions": ["icn1"]}` 을 고정했다. 앞서 리전 코드를 검증하지
+못해 `vercel.json` 을 만들지 않았는데, Vercel 문서에서 `icn1` = Seoul (AWS `ap-northeast-2`)
+을 확인한 뒤 추가했다. (ADR-011)
+
+**2. "국외 이전 없음" 으로 단정하지 않았다.** 저장 리전이 국내라도 수탁자 Supabase Inc. 는
+국외 법인이다. Supabase 공식 문서는 primary Postgres/Auth/Storage 가 선택 리전에 머문다고
+하면서도 **백업·로그·외부 반출·Edge Function 실행·재위탁 업체가 data residency 와 국외이전
+판단에 영향을 줄 수 있다**고 명시한다. 그래서 `app/privacy/page.tsx` 4항에는
+
+- 보관 리전 = 서울, DB 는 국내 리전에 위치 → **사실로 기재**
+- 국외 이전 해당 여부 → **"검토 진행 중"** 으로 표기하고 법무 확정 후 교체
+
+로 남겼다. 검증되지 않은 법적 단정을 공개 페이지에 올리는 것이 금융 도메인에서는 그 자체로
+리스크이기 때문이다. 확인해야 할 항목(재위탁 업체 목록, 백업·로그 위치, 기술지원 시 국외 접근
+가능 여부)을 `doc/06-security-compliance.md` 에 적어 두었다.
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)

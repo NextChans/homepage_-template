@@ -28,8 +28,8 @@ Supabase 대시보드와 Vercel 대시보드 사이에서만 오가게 한다. �
 ## 1. Supabase 프로젝트 준비
 
 1. supabase.com → New project
-   - **리전은 서울(ap-northeast-2) 권장.** 국외 리전을 쓰면 개인정보 국외이전 고지가 필요하고,
-     `app/privacy/page.tsx` 4항을 그에 맞게 고쳐야 한다.
+   - **리전은 서울(`ap-northeast-2`) 로 확정했다** (2026-09-10). 다른 리전으로 만들면
+     `app/privacy/page.tsx` 4항과 `vercel.json` 의 함수 리전을 함께 고쳐야 한다.
    - DB 비밀번호는 생성 시 한 번만 보인다. 팀 비밀 저장소에 보관한다.
 2. **스키마 적용 — 대시보드 SQL Editor 사용을 권장한다.**
    - `supabase/migrations/20260910000001_inquiries.sql` 내용을 복사해 SQL Editor 에 붙이고 Run
@@ -98,11 +98,23 @@ Vercel → Settings → Environment Variables 에 직접 넣는다.
   켜면 이후 대시보드에서 값을 다시 읽을 수 없어 유출 경로가 줄어든다.
 - `NEXT_PUBLIC_` 접두어를 비밀키에 붙이면 **클라이언트 번들에 박혀 RLS 가 무력화된다.**
 
-### 3-3. 함수 리전
+### 3-3. 함수 리전 — `vercel.json` 에 고정했다
 
-문의 접수는 Server Action → Supabase 왕복이다. 함수 리전이 Supabase 리전과 멀면 지연이 커진다.
-Vercel → Settings → Functions → **Function Region 을 Supabase 리전과 가까운 곳(서울)으로** 맞춘다.
-리전 코드는 Vercel 문서의 현재 목록을 확인해 고른다 — 코드를 추측해서 `vercel.json` 에 박지 않는다.
+문의 접수는 Server Action → Supabase 왕복이다. **Vercel 함수의 기본 리전은 `iad1`(버지니아)** 이므로
+그대로 두면 매 제출이 서울 DB ↔ 미국 함수를 왕복한다.
+
+`vercel.json` 에 서울을 고정해 두었다.
+
+```json
+{ "regions": ["icn1"] }
+```
+
+`icn1` = Seoul (AWS `ap-northeast-2`) — Supabase 리전과 동일하다.
+
+- 대시보드 설정 대신 저장소에 둔 이유: 리뷰 가능하고, 리전이 바뀌면 diff 에 남는다 (ADR-011).
+- **요금제에 따라 함수 리전 선택이 제한될 수 있다.** 배포가 리전 문제로 거부되면
+  `vercel.json` 의 `regions` 를 지우고 대시보드 → Settings → Functions 에서 설정한다.
+  기능에는 영향이 없고 지연만 늘어난다.
 
 ---
 
@@ -134,5 +146,9 @@ Vercel → Settings → Functions → **Function Region 을 Supabase 리전과 �
 - [ ] 접수 알림 (Slack / 이메일) — 사이트에 "1영업일 회신"을 명시했으므로 알림 없이는 이행 불가
 - [ ] `SUPABASE_SECRET_KEY` 로테이션 주기와 접근권한자 명단 정의
 - [ ] CSP 헤더 추가 (`next.config.ts`)
-- [ ] `app/privacy/page.tsx` 4항에 실제 Supabase 리전·국외이전 여부 반영
+- [ ] `app/privacy/page.tsx` 4항의 **국외 이전 해당 여부 법무 확정** (리전은 반영 완료)
+      - 저장 리전은 서울이지만 Supabase 는 국외 법인이고, [공식 문서가 백업·로그·외부 반출·
+        Edge Function 실행·재위탁 업체가 데이터 residency 와 국외이전 판단에 영향을 줄 수 있다고
+        명시](https://supabase.com/docs/guides/security/gdpr-compliance)한다.
+        "국외 이전 없음" 으로 단정하지 않았다.
 - [ ] `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)
