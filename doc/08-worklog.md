@@ -222,6 +222,35 @@ Vercel 은 Node 18 배포를 이미 거부하고, [Node 20 도 2026-10-01 지원
 `engines.node = "22.x"` 는 되돌리지 않는다. 배포 실패와 무관하게 로컬·CI·Vercel 런타임을
 저장소에서 고정하는 값으로서 정당하고, 3주 뒤 Node 20 지원 종료 대응도 된다.
 
+### 원인 확정 — 환경변수 빈 문자열 (배포 9회 실패)
+
+사용자가 Vercel Building 로그를 제공했다. 결정적 한 줄:
+
+```
+[Error: Failed to collect configuration for /_not-found]
+  [cause]: TypeError: Invalid URL
+```
+
+`content/site.ts` 의 `process.env.NEXT_PUBLIC_SITE_URL ?? '...'` 가 원인.
+**`??` 는 빈 문자열을 폴백하지 않는다.** Vercel 은 미설정 `NEXT_PUBLIC_*` 를 빈 값으로
+주입하므로 `site.url === ''` → `app/layout.tsx` 의 `new URL('')` 이 TypeError.
+
+로컬·CI 는 변수가 아예 없어서(undefined) 통과했다. 이 한 칸 차이가 "CI 통과 · Vercel 실패" 였다.
+
+**재현**: `NEXT_PUBLIC_SITE_URL="" npm run build` → 동일 에러. 미설정으로는 재현 안 됨.
+
+**수정**
+- `content/site.ts`: `resolveSiteUrl()` — trim → 빈 값 검사 → `new URL` try/catch →
+  프로토콜 검사 → 끝 슬래시 제거. 어떤 입력에도 throw 하지 않는다.
+- `.github/workflows/ci.yml`: 빌드 스텝에 `NEXT_PUBLIC_SITE_URL: ''` 명시.
+  Vercel 과 같은 엄격한 조건으로 검증해 같은 부류의 회귀를 CI 에서 잡는다.
+
+**검증**: 미설정 / 빈 문자열 / 잘못된 형식 / 정상값(끝 슬래시 포함) 4가지 모두 빌드 통과,
+sitemap 의 URL 에 `//` 없음. typecheck·lint 통과.
+
+**반성**: 가설 두 개를 각각 푸시로 검증했고 둘 다 틀렸다. 로그 한 줄이 그 모든 추측보다
+결정적이었다. 로그 확보를 더 일찍·더 강하게 요구해야 했다. 자세한 교훈은 ADR-012.
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)

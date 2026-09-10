@@ -177,3 +177,41 @@ Vercel 토큰이 없어 확인할 수 없었다.
 
 **교훈**: 배포 설정을 저장소에 넣는 판단(리뷰 가능성)은 유효하지만, **직접 배포를 검증할 수단이
 없는 상태에서 배포 파이프라인 설정을 추가하면 안 된다.** 검증 수단이 먼저다.
+
+---
+
+## ADR-012. 환경변수에서 온 URL 은 반드시 검증한다 (Vercel 배포 9회 실패의 원인)
+
+- **증상** Vercel 배포가 **9회 연속 실패**. 같은 커밋에서 GitHub Actions CI 는 매번 통과.
+  문서 1개만 바꾼 커밋도 실패. `vercel.json` 제거, `next` 업그레이드, `engines.node` 고정
+  모두 무효(ADR-011 개정 참고).
+- **실제 원인** 빌드 로그의 결정적 한 줄:
+  ```
+  [Error: Failed to collect configuration for /_not-found]
+    [cause]: TypeError: Invalid URL
+  ```
+  `content/site.ts` 가 `process.env.NEXT_PUBLIC_SITE_URL ?? '...'` 였고,
+  `app/layout.tsx` 가 그 값을 `metadataBase: new URL(site.url)` 로 썼다.
+
+  **`??` 는 null/undefined 만 폴백한다. 빈 문자열은 통과시킨다.**
+  Vercel 은 미설정 `NEXT_PUBLIC_*` 를 **빈 문자열로 주입**하므로 `site.url === ''` 이 되고,
+  `new URL('')` 이 TypeError 를 던져 `Collecting page data` 단계에서 빌드가 죽었다.
+
+  로컬·CI 는 변수가 **아예 없어서**(`undefined`) `??` 가 정상 동작해 통과했다.
+  이 한 칸 차이가 "CI 통과 · Vercel 실패" 의 전부였다.
+- **재현** `NEXT_PUBLIC_SITE_URL="" npm run build` → 동일한 에러. 미설정으로는 재현되지 않는다.
+- **결정**
+  1. `content/site.ts` 에 `resolveSiteUrl()` 을 두고 **trim → 빈 값 검사 → `new URL` try/catch →
+     프로토콜 검사 → 끝 슬래시 제거** 를 거친 값만 내보낸다. 어떤 입력에도 throw 하지 않는다.
+  2. **CI 의 빌드 스텝에 `NEXT_PUBLIC_SITE_URL: ''` 를 명시적으로 설정한다.**
+     Vercel 과 같은(더 엄격한) 조건으로 빌드해, 같은 부류의 회귀가 CI 를 통과할 수 없게 한다.
+- **근거** 1번만 고치면 이 버그는 잡히지만 **같은 부류는 또 발생한다.** 환경변수는 "없음" 과
+  "빈 값" 이 다르고, 플랫폼마다 어느 쪽을 주는지가 다르다. CI 가 느슨한 조건으로만 검증하면
+  배포에서만 깨지는 상황이 반복된다. 그래서 검증 환경 자체를 엄격한 쪽에 맞췄다.
+- **교훈 (진단 과정)**
+  - 가설 두 개(`vercel.json`, Node 버전)를 각각 푸시로 검증했고 **둘 다 틀렸다.**
+    로그 한 줄이 그 모든 추측보다 결정적이었다. **로그 확보를 더 일찍, 더 강하게 요구해야 했다.**
+  - "CI 는 통과하는데 배포만 실패" 는 소스 문제가 아니라 **환경 차이** 신호다.
+    그 방향으로 좁히는 건 맞았지만, 환경 차이의 후보에 **환경변수의 빈 값 주입**을 넣지 못했다.
+  - 소요 시간이 35~42초로 일정했던 것은 실제로 **빌드가 거의 끝난 뒤**(Compiled successfully →
+    Collecting page data) 죽었기 때문이다. "빌드 후 단계 실패" 라는 재해석은 방향이 맞았다.
