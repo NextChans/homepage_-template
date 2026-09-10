@@ -762,6 +762,8 @@ HTTP 서브도메인을 붙일 계획이면 먼저 확인해야 한다.
 3-1. **`witus.kr` 도메인 연결** — 코드는 준비됨. Vercel Domains 추가 + DNS 설정이
    남았다(`doc/09-deployment.md` 3-4절). 연결 후 `/sitemap.xml` 이 `witus.kr` 인지
    확인하고, 아니면 `NEXT_PUBLIC_SITE_URL` 을 명시한다.
+   ⚠️ **순서를 지킨다**: `witus.kr` 이 열리는 것을 확인한 **뒤에** `www` 와
+   `*.vercel.app` 에 리다이렉트를 건다. 먼저 걸면 살아 있는 주소가 없어진다.
 4. ~~보관기간 경과 데이터 삭제 잡(`pg_cron`)~~ — 코드 완료 (2026-09-10, ADR-021).
    **단 마이그레이션 006·007 을 Supabase 에서 실행하고 다음 날 `data_retention_log`
    에 `triggered_by = 'cron'` 행이 생기는지 확인해야 실제로 완료다.**
