@@ -752,6 +752,32 @@ sitemap·robots·og:image 모두 `witus.kr`. ⚠️ **DNS·인증서는 검증�
 효력이 있어** apex 를 방문한 브라우저가 모든 서브도메인에 HTTPS 를 강제한다.
 HTTP 서브도메인을 붙일 계획이면 먼저 확인해야 한다.
 
+**도메인 `witus.kr` 연결 완료 + 설계 가정 정정 (2026-09-10)**
+
+가비아 포워딩 해제 + A 레코드(`216.198.79.1`) 반영으로 **도메인이 살아났다.**
+
+| 확인 | 결과 |
+|---|---|
+| `https://witus.kr` | 200, TLS 검증 통과(인증서 자동 발급) |
+| 프레임 마스킹 | 제거됨 (`<frame>` 0개) |
+| 심볼·워드마크 | 정상 (헤더+푸터 2회) |
+| `/icon.svg` · `/apple-icon.png` · `/opengraph-image.png` | 200, 올바른 content-type |
+
+**⚠️ 설계 가정이 틀렸다 — `VERCEL_PROJECT_PRODUCTION_URL` 은 커스텀 도메인을 따라오지
+않는다.** 도메인 연결·인증서 발급 후 **새 Production 배포를 만들어도** 계속
+`homepage-template-ivory.vercel.app` 을 반환했고, canonical·sitemap 이 vercel.app 을
+가리켰다. **canonical 로 막으려던 중복 색인을 canonical 이 만드는 상태**였고 화면에는
+아무 증상이 없었다.
+
+→ 체인에서 제거했다. 이제 `NEXT_PUBLIC_SITE_URL` → `DEFAULT_SITE_URL` 뿐이다.
+회귀 검증: 그 변수를 주고 빌드해도 canonical 이 `witus.kr` 로 나온다.
+
+⚠️ **canonical·sitemap 은 빌드 시점에 구워진다.** 도메인 관련 변경은 재배포해야
+반영된다 — 대시보드만 만져서는 안 바뀐다.
+
+**남은 수작업**: `www.witus.kr` 이 아직 리다이렉트가 아니라 Production 콘텐츠다
+(200 으로 심볼을 직접 렌더). `homepage-template-ivory.vercel.app` 리다이렉트도 남았다.
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)
