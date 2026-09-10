@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { Container } from '@/components/ui'
 import { services } from '@/content/services'
 import { auditContext, logAdminAction } from '@/lib/admin/audit'
+import { formatDateTime } from '@/lib/admin/format'
 import { requireAdminSession } from '@/lib/admin/guard'
 import { getInquiry } from '@/lib/admin/inquiries'
 import { listStatusHistory } from '@/lib/admin/inquiry-write'
@@ -23,18 +24,6 @@ const serviceLabel = new Map<string, string>([
   ...services.map((s) => [s.slug, s.name] as [string, string]),
   ['other', '기타 문의'],
 ])
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 /** UUID 형식만 허용한다. 임의 문자열로 조회를 시도하지 못하게 한다. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -98,7 +87,7 @@ export default async function AdminInquiryDetailPage({ params }: PageProps) {
 
       <dl className="mt-8 max-w-3xl border-t border-hairline">
         <Row label="접수일시">
-          <span className="font-mono tabular-nums">{formatDate(inquiry.createdAt)}</span>
+          <span className="font-mono tabular-nums">{formatDateTime(inquiry.createdAt)}</span>
         </Row>
         <Row label="담당자">{inquiry.name}</Row>
         <Row label="이메일">
@@ -141,7 +130,7 @@ export default async function AdminInquiryDetailPage({ params }: PageProps) {
         </Row>
         <Row label="처리 담당">{inquiry.handledBy ?? '—'}</Row>
         <Row label="처리 일시">
-          <span className="font-mono tabular-nums">{formatDate(inquiry.handledAt)}</span>
+          <span className="font-mono tabular-nums">{formatDateTime(inquiry.handledAt)}</span>
         </Row>
         <Row label="레코드 id">
           <span className="font-mono text-[12px] text-ink-muted">{inquiry.id}</span>
@@ -168,7 +157,7 @@ export default async function AdminInquiryDetailPage({ params }: PageProps) {
               <li key={h.id} className="flex flex-col gap-1 border-b border-hairline py-4">
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="font-mono text-[13px] tabular-nums text-ink-muted">
-                    {formatDate(h.changedAt)}
+                    {formatDateTime(h.changedAt)}
                   </span>
                   <span className="text-[14px] text-ink">
                     {h.fromStatus ? (

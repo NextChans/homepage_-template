@@ -25,6 +25,19 @@ export type AdminAction =
   | 'record_viewed'
   | 'record_created'
   | 'status_changed'
+  // 계정 관리
+  | 'user_created'
+  | 'user_role_changed'
+  | 'user_disabled'
+  | 'user_enabled'
+  | 'user_deleted'
+  | 'user_password_reset'
+  | 'user_unlocked'
+  | 'sessions_revoked'
+  | 'own_password_changed'
+  // 조회
+  | 'user_list_viewed'
+  | 'audit_viewed'
 
 /** 로그인 실패 임계값 */
 export const LOGIN_LOCK_WINDOW_MINUTES = 15
@@ -67,6 +80,11 @@ export async function logAdminAction(input: {
   action: AdminAction
   actor?: string | null
   targetId?: string | null
+  /**
+   * 변경 요약 한 줄 (예: `agent → admin`).
+   * ⚠️ **개인정보를 적지 않는다.** 계정명·역할·상태값만.
+   */
+  note?: string | null
   context: AuditContext
 }): Promise<void> {
   const supabase = getServiceClient()
@@ -79,6 +97,7 @@ export async function logAdminAction(input: {
     action: input.action,
     actor: input.actor ?? null,
     target_id: input.targetId ?? null,
+    note: input.note ? input.note.slice(0, 200) : null,
     ip_hash: input.context.ipHash,
     user_agent: input.context.userAgent,
   })

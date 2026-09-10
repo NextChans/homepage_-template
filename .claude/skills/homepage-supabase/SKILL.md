@@ -136,6 +136,29 @@ CLI 를 쓸 수 없으면 Supabase 대시보드 → SQL Editor 에 파일 내용
 | 문의 원문 수정·삭제 기능 | 만들지 않았다. 접수 원문을 바꾸면 처리 이력의 근거가 사라진다. 필요하면 정정 이력을 함께 설계한다 |
 | CSV·엑셀 내보내기 | 만들지 않았다. 요구가 생기면 **반출 기록을 감사 로그에 남기는 설계를 먼저** 한다 |
 
+## 8. 계정·권한(`admin_users`)을 건드릴 때
+
+운영 절차는 `doc/10-admin.md` 9절, 근거는 ADR-019.
+
+| 하려는 것 | 주의 |
+|---|---|
+| 역할 추가 | `lib/admin/roles.ts` 의 `ADMIN_ROLES`·`ROLE_PERMISSIONS` **와** `admin_users.role` check 제약을 함께 고친다 |
+| 권한 추가 | `PERMISSIONS` 에 추가하고 **`ROLE_PERMISSIONS` 의 모든 역할에 명시**한다. 빠뜨리면 조용히 거부된다 |
+| 감사 액션 추가 | `AdminAction` 타입 **·** `admin_audit_log_action_check` 제약 **·** `AUDIT_ACTION_LABEL` 세 곳을 함께 고친다 |
+| 새 관리자 화면 | `requirePermission('...')` 을 **그 페이지에서 직접** 호출 + `force-dynamic` |
+| 새 계정 관리 액션 | `requireUserManager()` 로 **액션 안에서 권한을 다시 확인**한다. 화면 숨김은 방어가 아니다 |
+| 세션 무효화가 필요한 변경 | `session_epoch` 를 갱신한다(비밀번호·역할·상태 변경 시 필수). **카운터로 만들지 말 것** — 읽고-쓰기 경쟁으로 증가가 유실되면 세션이 살아남는다 |
+
+**권한 판단은 역할 이름이 아니라 `can(role, permission)` 으로만 한다.**
+`role === 'admin'` 조건을 새로 만들지 않는다 — 역할이 늘 때 전수 조사를 해야 한다.
+
+**절대 하지 않을 것 (계정)**
+- 비밀번호를 평문·복호화 가능한 형태로 저장
+- 상담자(`agent`)에게 `user.manage` / `audit.read` 부여
+- 환경변수 비상 복구 계정을 제거 (완전 잠금 방지 장치다)
+- 비상 복구 계정으로 일상 업무 처리
+- 본인·마지막 활성 관리자의 강등·비활성화·삭제 허용
+
 **쓰기 경로의 불변식**
 - Server Action 에서 **세션을 직접 확인한다.** 화면을 가리는 것만으로는 부족하다 —
   Server Action 은 고유 id 로 등록되어 폼 없이도 POST 될 수 있다.
