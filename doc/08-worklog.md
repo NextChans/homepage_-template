@@ -679,6 +679,16 @@ main 에만 있는 SHA 로 배포를 다시 돌린다(이 커밋이 그 역할�
 아직 옛 표기를 반환했다. **머지 직후의 응답으로 판단하면 안 된다** — 빌드가 끝날
 때까지 구버전이 서빙된다. `/privacy` 404 는 정상이다(`features.privacyPolicy: false`).
 
+**배포 규칙 정리 (2026-09-10)**: PR #12·#13 머지 후 GitHub Deployments 를 조회해
+**두 머지 커밋 모두 `Production` 배포가 생성된 것을 확인**했다(`f7c4d43`, `141d567`).
+작업 브랜치 커밋은 `Preview` 로 따로 잡혀 SHA 충돌이 없었다 — PR #10 사고의 재발
+조건이 성립하지 않았다.
+
+그런데 `CLAUDE.md` 의 "머지 후 push 하지 않는다" 규칙에 **해제 조건이 없어 stop
+hook(미푸시 커밋 경고)과 교착**했다. 금지되는 것은 좁게 하나다 — Production 배포가
+생기기 전에 같은 SHA 를 Preview 로 선점하는 것. 해제 조건 2개와 **Vercel 토큰 없이
+확인하는 방법**(GitHub Deployments API)을 규칙에 넣었다. 상세는 ADR-022.
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)

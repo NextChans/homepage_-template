@@ -58,13 +58,31 @@
    - 머지 후 작업 브랜치를 `origin/main` 기준으로 **로컬에서만** 다시 만든다
      (`git fetch origin main && git checkout -B <branch> origin/main`).
      **이미 머지된 PR 에 새 커밋을 쌓지 않는다.**
-   - ⚠️ **이때 브랜치를 push 하지 않는다.** 작업 브랜치를 `main` 과 같은 커밋으로
-     force-push 하면 Vercel 이 **같은 SHA 를 Preview 로 먼저 잡아** Production 배포가
+   - ⚠️ **머지 직후에는 브랜치를 push 하지 않는다.** 작업 브랜치를 `main` 과 같은
+     커밋으로 올리면 Vercel 이 **같은 SHA 를 Preview 로 먼저 잡아** Production 배포가
      생성되지 않는다(같은 커밋을 두 번 빌드하지 않는다). 실제로 PR #10 이 이 때문에
-     프로덕션에 반영되지 않았다. push 는 **새 커밋이 생겼을 때** 한다.
+     프로덕션에 반영되지 않았다.
+   - **금지되는 것은 "Production 배포가 생기기 전에 같은 SHA 를 Preview 로 선점하는
+     것" 뿐이다.** 해제 조건은 둘 중 하나다 —
+     1. 머지 커밋의 **Production 배포가 이미 생성**되었다 (아래 명령으로 확인)
+     2. push 할 커밋이 **머지 커밋과 다른 SHA** 다 (= 새 커밋이 생겼다)
+
+     ```sh
+     # 머지 커밋의 배포 환경 확인. env=Production 이 있으면 위험은 지나갔다.
+     curl -sS "https://api.github.com/repos/NextChans/homepage_-template/deployments?sha=<merge-sha>" \
+       -H "Accept: application/vnd.github+json" | python3 -c \
+       "import sys,json;[print(x['environment'],x['ref'][:7]) for x in json.load(sys.stdin)]"
+     ```
+
+     ⚠️ **stop hook 이 "unpushed commit" 을 경고해도 조건 확인 없이 push 하지 않는다.**
+     hook 은 브랜치 tip 만 비교하므로 "이미 `origin/main` 에 있는 커밋" 과 "유실
+     위험이 있는 커밋" 을 구분하지 못한다. `git log origin/main..HEAD` 가 비어 있으면
+     **유실될 것이 없다** — 그 경고는 오탐이다.
    - 머지 후에는 **프로덕션 화면에서 변경이 반영됐는지 확인한다.** CI 통과와 배포는
-     별개다. 반영이 안 됐으면 Vercel Deployments 에서 해당 배포가 `Preview` 로
-     잡혔는지 보고, 그렇다면 **Promote to Production** 하거나 새 커밋을 올린다.
+     별개다. **머지 직후 응답으로 판단하면 안 된다** — 빌드가 끝날 때까지 구버전이
+     서빙된다(실제로 두 번의 요청이 옛 내용을 반환했다). 반영이 안 됐으면 해당 배포가
+     `Preview` 로 잡혔는지 보고, 그렇다면 **Promote to Production** 하거나 새 커밋을
+     올린다.
    - CI 가 **실패하면 머지하지 않는다.** 원인을 규명해 고치고 다시 푸시한다.
    - **DB 마이그레이션이 포함된 머지는 사용자에게 알린다** — Supabase SQL Editor
      실행은 사람이 해야 반영된다.
