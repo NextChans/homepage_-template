@@ -1,0 +1,217 @@
+# 04. 의사결정 기록 (ADR)
+
+각 항목: 맥락 → 결정 → 근거 → 대안 → 남는 위험
+
+---
+
+## ADR-001. `apple-design` 스킬을 프로젝트 레벨로 설치
+
+- **맥락** 사용자가 "apple-design 스킬을 설치한 후 사용"을 요구. 사내/마켓플레이스 카탈로그에
+  동명 스킬이 없었다.
+- **결정** `schhaohao/apple-design` 의 `SKILL.md` 를 `.claude/skills/apple-design/` 에 그대로 복사.
+  출처·설치일·대안 스킬을 `SOURCE.md` 에 기록.
+- **근거** 후보 6개 중 frontmatter 규격이 올바르고(`name: apple-design`) 내용이 자체 완결적이며
+  외부 참조 파일이 없는 유일한 저장소. 프로젝트 레벨이면 저장소를 클론한 누구나 같은 규범을 받는다.
+- **대안** `chaos-xxl/apple-design-skill` (토큰/레이아웃 레퍼런스가 더 상세하지만 `prompts/` 분산
+  구조라 그대로 스킬로 동작하지 않음), `tristan-mcinnis/apple-hig-designer-skill-2026` (HIG/네이티브 중심).
+- **남는 위험** 원본 frontmatter 가 `LICENSE.txt` 를 참조하지만 저장소에 라이선스 파일이 없다.
+  **사내 배포·재배포 전 원저작자에게 라이선스를 확인해야 한다.** 서브모듈이 아니라 복사이므로
+  업스트림 변경은 자동 반영되지 않는다.
+
+---
+
+## ADR-002. 웹폰트를 쓰지 않고 시스템 폰트 스택 사용
+
+- **결정** `-apple-system` → `SF Pro` → `Pretendard` → `Apple SD Gothic Neo` → `system-ui`
+- **근거** apple-design 스킬이 시스템 폰트 스택을 최우선으로 요구한다. 부수 효과로 웹폰트 요청이
+  0건이 되어 LCP 가 개선되고 CLS 가 발생하지 않는다.
+- **남는 위험** Windows/Android 에서는 SF Pro 가 없어 `Malgun Gothic` / 기본 산세리프로 떨어진다.
+  브랜드 일관성이 중요해지면 Pretendard 를 self-host 하는 방안을 재검토한다(폰트 용량 트레이드오프).
+
+---
+
+## ADR-003. Server Component 우선, 클라이언트는 3개 컴포넌트로 제한
+
+- **결정** `site-header`, `reveal`, `contact-form` 만 `'use client'`.
+- **근거** 마케팅 사이트는 상호작용이 적다. 정적 프리렌더로 공유 청크 약 102 kB 수준을 유지.
+- **남는 위험** 향후 애널리틱스·챗 위젯을 붙이면 이 수치가 무의미해진다. 서드파티 스크립트는
+  `next/script` 의 `lazyOnload` 로 넣고 번들 영향을 매번 측정한다.
+
+---
+
+## ADR-004. 문의 저장은 Server Action + `service_role`, RLS 정책 없음
+
+- **맥락** 문의 데이터에는 개인정보(이름·이메일·연락처)가 들어간다.
+- **결정** `inquiries` 테이블에 RLS 를 켜고 **정책을 만들지 않는다.** anon 키로는 어떤 작업도
+  불가하고, 삽입은 `service_role` 을 쓰는 Server Action 에서만 수행한다.
+- **근거** anon insert 정책을 열면 anon 키만으로 임의 데이터 삽입이 가능해진다(키는 공개된다).
+  금융 도메인에서 개인정보 테이블에 공개 쓰기 경로를 두는 것은 허용하지 않는다.
+- **대안** anon insert 정책 + Turnstile/reCAPTCHA. 서버를 거치지 않아 간단하지만,
+  검증 로직이 클라이언트로 나가고 스팸 대응이 외부 서비스 의존이 된다.
+- **남는 위험** `service_role` 키 유출 시 전체 DB 가 노출된다. `'server-only'` 로 클라이언트
+  번들 유입을 막았고 `NEXT_PUBLIC_` 접두어를 금지했지만, **배포 플랫폼의 환경변수 관리와
+  키 로테이션 정책이 별도로 필요하다.**
+
+---
+
+## ADR-005. IP 는 원문 대신 salt 적용 해시만 저장
+
+- **결정** `INQUIRY_IP_HASH_SALT` + SHA-256 → `ip_hash`. salt 가 없으면 해시조차 저장하지 않는다.
+- **근거** 어뷰징 억제에는 동일성 판별만 필요하고 원문은 불필요하다. IPv4 공간은 작아
+  salt 없는 해시는 전수 대조로 재식별이 가능하므로, salt 부재 시 저장을 포기하는 쪽을 택했다.
+- **남는 위험** salt 를 교체하면 기존 해시와 매칭이 끊겨 레이트리밋 이력이 초기화된다.
+  의도된 동작이다.
+
+---
+
+## ADR-006. 레이트리밋을 DB 카운트 기반으로 구현
+
+- **결정** 동일 `ip_hash` 기준 10분 내 3건 초과 차단. 카운트 조회 실패 시에는 **접수를 막지 않고**
+  로그만 남긴다.
+- **근거** 외부 의존(Redis)을 늘리지 않고 어뷰징을 억제하는 최소 구성. 정합성보다 가용성을
+  택한 것은 이 데이터가 결제 원장이 아니라 문의 접수이기 때문이다.
+- **남는 위험** 동시 요청에서 원자적이지 않아 순간적으로 한도를 넘을 수 있다.
+  트래픽이 커지면 Upstash Redis 등 외부 카운터로 이동한다.
+
+---
+
+## ADR-007. 스크롤 리빌에 `<noscript>` 폴백을 추가
+
+- **맥락** 구현 직후 스크린샷에서 본문이 전부 빈 화면으로 나왔다. 원인은 캡처 스크립트의
+  smooth scroll 이었으나, 이 과정에서 **JS 미실행 시 `.reveal` 이 콘텐츠를 영구히 숨긴다**는
+  실제 결함이 드러났다.
+- **결정** `app/layout.tsx` `<head>` 에 `<noscript>` 스타일을 넣어 `.reveal` 을 강제 표시.
+  `reveal.tsx` 에도 `IntersectionObserver` 부재 시 즉시 표시 경로를 유지.
+- **근거** 마케팅 사이트에서 본문이 안 보이는 것은 치명적이다. HTML 에는 SSR 되어 있으므로
+  크롤러에는 영향이 없었지만, JS 차단 환경의 실사용자에게는 백지가 된다.
+
+---
+
+## ADR-008. `Hero` 에 `size` 프롭을 도입 (한국어 타이포 대응)
+
+- **맥락** `.type-display`(최대 6rem)를 하위 페이지 히어로에 적용하니 한국어 헤드라인이
+  3줄로 깨지고 여백 균형이 무너졌다(스크린샷으로 확인).
+- **결정** `size: 'display' | 'headline'`. 홈만 `display`, 나머지는 `headline`.
+- **근거** 한국어는 라틴 문자보다 자폭이 넓다. 스케일을 그대로 이식하면 Apple 원본의
+  "한 문장이 화면을 지배하는" 효과가 오히려 깨진다.
+
+---
+
+## ADR-009. Supabase 환경변수 이름을 두 체계 모두 지원
+
+- **맥락** Vercel 배포를 붙이려고 확인해 보니, Vercel 의 Supabase Marketplace 연동이 주입하는
+  변수명이 우리 `.env.example` 과 달랐다. 연동은 `SUPABASE_URL` / `SUPABASE_SECRET_KEY` 를
+  넣고, 우리가 읽던 `SUPABASE_SERVICE_ROLE_KEY` 와 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 는
+  넣지 않는다. 그대로 두면 **연동을 켜도 앱은 "미설정" 상태로 조용히 동작**한다.
+- **또 하나** Supabase 는 레거시 `anon` / `service_role` JWT 를 신형
+  `sb_publishable_...` / `sb_secret_...` 로 대체하며 레거시는 2026년 말 지원 종료 예정이다.
+- **결정** `lib/supabase/server.ts` 가 우선순위 배열로 두 체계를 모두 찾는다.
+  - URL: `NEXT_PUBLIC_SUPABASE_URL` → `SUPABASE_URL`
+  - 비밀키: `SUPABASE_SECRET_KEY` → `SUPABASE_SERVICE_ROLE_KEY`
+  신형을 먼저 본다. 읽는 지점은 여전히 이 파일 한 곳뿐이다.
+- **근거** 이름을 한쪽으로 고정하면 (a) 연동 방식을 바꿀 때마다 코드를 고쳐야 하고
+  (b) 레거시 키 종료 시 다시 고쳐야 한다. 배열 두 개로 양쪽을 흡수하는 비용이 훨씬 낮다.
+- **대안** Vercel 쪽에서 변수명을 우리 이름으로 다시 매핑 — 대시보드에 숨은 설정이 늘어나고
+  저장소만 봐서는 알 수 없게 된다. 채택하지 않았다.
+- **남는 위험** 두 이름이 동시에 존재하고 값이 다르면 신형이 조용히 이긴다. 의도한 동작이지만,
+  키를 교체할 때 옛 이름을 지우지 않으면 혼란이 생길 수 있다.
+
+---
+
+## ADR-010. 개발 안내 배너를 NODE_ENV 로 차단
+
+- **맥락** `/contact` 에는 Supabase 미설정 시 "환경변수가 없다"는 개발용 배너가 있었고,
+  제거는 `doc/05-content-guide.md` 의 수동 체크리스트에 맡겨져 있었다.
+- **결정** `process.env.NODE_ENV === 'production'` 이면 렌더링하지 않는다.
+- **근거** 수동 체크리스트는 잊힌다. env 주입이 실패한 채로 배포되면 방문자에게 내부 설정
+  정보가 노출된다. 코드로 막는 편이 확실하다.
+- **부수 효과** 프로덕션에서 배너가 안 보이는 것이 정상 동작이 되므로, env 주입 실패는
+  배너가 아니라 **서버 로그(`supabaseConfigHint()`)와 실제 제출 테스트**로 확인해야 한다.
+  `doc/09-deployment.md` 검증 체크리스트에 그렇게 적었다.
+
+---
+
+## ADR-011. Supabase 리전 서울 확정, Vercel 함수 리전을 `vercel.json` 에 고정
+
+- **맥락** Supabase 프로젝트 리전이 서울(`ap-northeast-2`)로 확정됐다. 그런데 **Vercel 함수의
+  기본 리전은 `iad1`(버지니아)** 이다. 그대로 두면 문의 제출마다 서울 DB ↔ 미국 함수를
+  왕복해 Server Action 지연이 크게 늘어난다.
+- **결정**
+  1. ~~`vercel.json` 에 `{"regions": ["icn1"]}` 을 넣는다.~~ → **철회. 아래 개정 참고.**
+     함수 리전은 Vercel 대시보드(Settings → Functions)에서 Seoul(`icn1`)로 설정한다.
+  2. `app/privacy/page.tsx` 4항에 보관 리전을 서울로 명시한다.
+  3. 국외 이전은 **"해당 없음" 으로 단정하지 않는다.** "검토 진행 중" 으로 표기한다.
+- **근거 (1)** 대시보드 설정은 저장소만 봐서는 알 수 없고 누가 언제 바꿨는지도 남지 않는다.
+  설정 파일에 두면 리뷰 대상이 되고 리전 변경이 diff 에 남는다. 앞서 ADR 없이 `vercel.json` 을
+  만들지 않았던 이유는 리전 코드를 검증하지 못했기 때문이고, 이제 확인했다.
+- **근거 (3)** 저장 리전이 국내여도 수탁자 Supabase Inc. 는 국외 법인이다. Supabase 공식
+  문서는 primary Postgres/Auth/Storage 는 선택 리전에 머문다고 하면서도, **백업·로그·외부
+  시스템 반출·Edge Function 실행·재위탁 업체(sub-processor)가 data residency 와 국외이전
+  판단에 영향을 줄 수 있다**고 명시한다. 이 상태에서 방침에 "국외 이전 없음" 을 쓰는 것은
+  검증되지 않은 법적 단정이고, 금융 도메인에서는 그 자체가 리스크다.
+- **대안** 함수 리전을 대시보드에서만 설정 — 채택하지 않음(위 근거 1). 방침에 "국외 이전 없음"
+  단정 — 채택하지 않음(위 근거 3).
+- **남는 위험**
+  - 요금제에 따라 함수 리전 선택이 제한될 수 있다. 배포가 거부되면 `regions` 를 지우고
+    대시보드에서 설정한다. 기능 영향은 없고 지연만 늘어난다.
+  - 대시보드 리전과 실제 Supabase 리전이 어긋나도 **아무 에러가 나지 않는다.**
+    조용히 느려질 뿐이다. 리전을 바꿀 때 두 곳을 함께 확인해야 한다.
+
+### 개정 (2026-09-10) — `vercel.json` 철회
+
+`vercel.json` 을 추가한 커밋(`bdf8af7`)의 Vercel 배포가 33초 만에 실패했다. 배포 로그는
+Vercel 토큰이 없어 확인할 수 없었다.
+
+배제한 가설:
+
+- **요금제 제약** — [Hobby 도 단일 리전은 선택 가능](https://vercel.com/changelog/hobby-customers-can-now-select-their-preferred-region-for-serverless)
+  하고 우리는 `icn1` 하나만 지정했다. 가능성 낮음.
+- **설치 실패** — `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD` / `PLAYWRIGHT_BROWSERS_PATH` 없이
+  깨끗한 디렉터리에서 `npm ci` 를 재현했고 29초에 exit 0. 설치 문제가 아니다.
+
+남은 것은 `vercel.json` 자체(스키마 검증 등) 또는 vercel.json 과 무관한 원인이다.
+로그 없이 확정할 수 없으므로 **배포에 영향을 주는 유일한 변경을 되돌려 변수를 제거**했다.
+
+- 다음 배포가 성공하면 원인은 `vercel.json` 이었고, 리전은 대시보드에서 설정한다.
+- 다음 배포도 실패하면 원인은 다른 곳이며 Vercel 배포 로그가 필요하다.
+
+**교훈**: 배포 설정을 저장소에 넣는 판단(리뷰 가능성)은 유효하지만, **직접 배포를 검증할 수단이
+없는 상태에서 배포 파이프라인 설정을 추가하면 안 된다.** 검증 수단이 먼저다.
+
+---
+
+## ADR-012. 환경변수에서 온 URL 은 반드시 검증한다 (Vercel 배포 9회 실패의 원인)
+
+- **증상** Vercel 배포가 **9회 연속 실패**. 같은 커밋에서 GitHub Actions CI 는 매번 통과.
+  문서 1개만 바꾼 커밋도 실패. `vercel.json` 제거, `next` 업그레이드, `engines.node` 고정
+  모두 무효(ADR-011 개정 참고).
+- **실제 원인** 빌드 로그의 결정적 한 줄:
+  ```
+  [Error: Failed to collect configuration for /_not-found]
+    [cause]: TypeError: Invalid URL
+  ```
+  `content/site.ts` 가 `process.env.NEXT_PUBLIC_SITE_URL ?? '...'` 였고,
+  `app/layout.tsx` 가 그 값을 `metadataBase: new URL(site.url)` 로 썼다.
+
+  **`??` 는 null/undefined 만 폴백한다. 빈 문자열은 통과시킨다.**
+  Vercel 은 미설정 `NEXT_PUBLIC_*` 를 **빈 문자열로 주입**하므로 `site.url === ''` 이 되고,
+  `new URL('')` 이 TypeError 를 던져 `Collecting page data` 단계에서 빌드가 죽었다.
+
+  로컬·CI 는 변수가 **아예 없어서**(`undefined`) `??` 가 정상 동작해 통과했다.
+  이 한 칸 차이가 "CI 통과 · Vercel 실패" 의 전부였다.
+- **재현** `NEXT_PUBLIC_SITE_URL="" npm run build` → 동일한 에러. 미설정으로는 재현되지 않는다.
+- **결정**
+  1. `content/site.ts` 에 `resolveSiteUrl()` 을 두고 **trim → 빈 값 검사 → `new URL` try/catch →
+     프로토콜 검사 → 끝 슬래시 제거** 를 거친 값만 내보낸다. 어떤 입력에도 throw 하지 않는다.
+  2. **CI 의 빌드 스텝에 `NEXT_PUBLIC_SITE_URL: ''` 를 명시적으로 설정한다.**
+     Vercel 과 같은(더 엄격한) 조건으로 빌드해, 같은 부류의 회귀가 CI 를 통과할 수 없게 한다.
+- **근거** 1번만 고치면 이 버그는 잡히지만 **같은 부류는 또 발생한다.** 환경변수는 "없음" 과
+  "빈 값" 이 다르고, 플랫폼마다 어느 쪽을 주는지가 다르다. CI 가 느슨한 조건으로만 검증하면
+  배포에서만 깨지는 상황이 반복된다. 그래서 검증 환경 자체를 엄격한 쪽에 맞췄다.
+- **교훈 (진단 과정)**
+  - 가설 두 개(`vercel.json`, Node 버전)를 각각 푸시로 검증했고 **둘 다 틀렸다.**
+    로그 한 줄이 그 모든 추측보다 결정적이었다. **로그 확보를 더 일찍, 더 강하게 요구해야 했다.**
+  - "CI 는 통과하는데 배포만 실패" 는 소스 문제가 아니라 **환경 차이** 신호다.
+    그 방향으로 좁히는 건 맞았지만, 환경 차이의 후보에 **환경변수의 빈 값 주입**을 넣지 못했다.
+  - 소요 시간이 35~42초로 일정했던 것은 실제로 **빌드가 거의 끝난 뒤**(Compiled successfully →
+    Collecting page data) 죽었기 때문이다. "빌드 후 단계 실패" 라는 재해석은 방향이 맞았다.
