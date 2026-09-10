@@ -31,7 +31,7 @@ export default function HomePage() {
             단순한 시작.
           </>
         }
-        lede="밴 단말기부터 전자금융업 등록, 금융 클라우드, 오픈뱅킹 연동까지. 흩어진 절차를 한 팀이 끝냅니다."
+        lede="단말기와 키오스크부터 전자금융업 등록, 금융 클라우드, 오픈뱅킹 연동까지. 흩어진 절차를 한 팀이 끝냅니다."
         actions={
           <>
             <ButtonLink href="/contact">상담 신청</ButtonLink>

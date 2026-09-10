@@ -1,11 +1,34 @@
 import Link from 'next/link'
-import { services } from '@/content/services'
+import { serviceCountKo, services } from '@/content/services'
 import { Reveal } from './reveal'
 import { Container, Section } from './ui'
 
 /**
  * 벤토 그리드. 첫 카드만 2열을 차지해 비대칭이되 균형을 유지한다.
  */
+
+/** 마지막 행을 채우기 위한 span 클래스. Tailwind 가 스캔할 수 있도록 정적 문자열로 둔다. */
+const SM_SPAN: Record<number, string> = { 2: 'sm:col-span-2' }
+const LG_SPAN: Record<number, string> = { 2: 'lg:col-span-2', 3: 'lg:col-span-3' }
+
+/**
+ * 첫 카드는 2열, 마지막 카드는 남는 칸만큼 늘린다.
+ *
+ * ⚠️ 서비스 수가 바뀌면 마지막 행에 빈칸이 생긴다. 첫 카드가 2칸을 먹으므로
+ *    마지막 카드 앞까지 채워진 칸 수는 정확히 `total` 이고, 남는 칸은
+ *    `열 수 - (total % 열 수)` 다. 하드코딩하면 서비스를 추가할 때마다 깨진다.
+ *    (실제로 5종 → 6종이 되면서 3열 마지막 행에 카드 1개 + 빈칸 2개가 생겼다)
+ */
+function cardSpan(index: number, total: number): string | undefined {
+  if (index === 0) return 'sm:col-span-2'
+  if (index !== total - 1) return undefined
+
+  const classes = [SM_SPAN[2 - (total % 2)], LG_SPAN[3 - (total % 3)]].filter(
+    (c): c is string => Boolean(c),
+  )
+  return classes.length > 0 ? classes.join(' ') : undefined
+}
+
 export function ServiceGrid() {
   return (
     <Section id="services">
@@ -15,7 +38,7 @@ export function ServiceGrid() {
             서비스
           </Reveal>
           <Reveal as="h2" className="type-headline mt-4" delay={60}>
-            다섯 개의 일.
+            {serviceCountKo} 개의 일.
             <br />
             하나의 창구.
           </Reveal>
@@ -31,7 +54,7 @@ export function ServiceGrid() {
               key={s.slug}
               as="li"
               delay={i * 60}
-              className={i === 0 ? 'sm:col-span-2' : undefined}
+              className={cardSpan(i, services.length)}
             >
               <Link
                 href={`/services/${s.slug}`}

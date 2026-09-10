@@ -4,12 +4,12 @@ import { CtaBand } from '@/components/cta-band'
 import { Hero } from '@/components/hero'
 import { Reveal } from '@/components/reveal'
 import { Container, Section } from '@/components/ui'
-import { services } from '@/content/services'
+import { serviceCountKo, services } from '@/content/services'
 
 export const metadata: Metadata = {
   title: '서비스',
   description:
-    '밴 단말기, PG 영업대행, 전자금융업 등록, 금융 클라우드 이용등록, 금융결제원 오픈뱅킹 연동. 결제 사업의 모든 단계를 지원합니다.',
+    '밴 단말기, 키오스크(일반형·베리어프리), PG 영업대행, 전자금융업 등록, 금융 클라우드 이용등록, 금융결제원 오픈뱅킹 연동. 결제 사업의 모든 단계를 지원합니다.',
 }
 
 export default function ServicesPage() {
@@ -25,7 +25,7 @@ export default function ServicesPage() {
             절차가 아니라 결과입니다.
           </>
         }
-        lede="다섯 개의 서비스는 따로 존재하지 않습니다. 사업 단계에 따라 필요한 것만, 순서대로 연결해 드립니다."
+        lede={`${serviceCountKo} 개의 서비스는 따로 존재하지 않습니다. 사업 단계에 따라 필요한 것만, 순서대로 연결해 드립니다.`}
       />
 
       <Section className="border-t border-hairline pt-0 sm:pt-0 lg:pt-0">

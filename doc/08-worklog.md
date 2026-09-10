@@ -379,9 +379,38 @@ Supabase 미설정 상태에서 감사 로그 실패가 **서버 로그로 드�
    `ADMIN_PASSWORD_HASH`, `ADMIN_SESSION_SECRET` 등록 (**타입 Secret**)
 3. `INQUIRY_IP_HASH_SALT` 설정 확인 — 없으면 로그인 잠금이 동작하지 않는다
 
+### 키오스크 서비스 추가 — 일반형·베리어프리 (2026-09-10)
+
+사용자 요청: "키오스크도 판매하니까 추가", "일반형, 베리어프리도 있다는 걸 같이 기재".
+서비스 5종 → **6종**. 배치는 하드웨어끼리 묶어 2번(밴 단말기 다음). 상세는 ADR-016.
+
+| 변경 | 내용 |
+|---|---|
+| `content/services.ts` | `kiosk` 추가(`mark: '02'`). 뒤쪽 4종 `mark` 를 `03`…`06` 으로 재번호. 밴 단말기 `intro` 에서 "무인 키오스크" 제거(중복 인상 제거). `serviceCountKo` 신설 |
+| `supabase/migrations/20260910000003_inquiries_add_kiosk_slug.sql` | `inquiries_service_slug_check` 에 `kiosk` 추가 |
+| `components/service-grid.tsx` | `cardSpan()` — 마지막 행 빈칸 자동 보정 |
+| `app/services/page.tsx`, `app/page.tsx`, `content/site.ts` | 개수 문안을 `serviceCountKo` 로, 나열 문안·메타 설명에 키오스크 반영 |
+| `scripts/screenshot.mjs` | `/services/kiosk` 캡처 대상 추가 |
+
+**개수 하드코딩 2건이 조용히 틀어져 있었다** (5종 전제)
+1. `"다섯 개의 일."` — `service-grid.tsx`, `app/services/page.tsx` 두 곳.
+   → `serviceCountKo` 파생값으로 통일.
+2. 벤토 그리드 — 첫 카드가 2칸을 먹으므로 3열 마지막 행이 **카드 1개 + 빈칸 2개**.
+   → `cardSpan()` 이 `열 수 - (total % 열 수)` 로 남는 칸을 계산해 마지막 카드를 늘린다.
+   span 클래스는 Tailwind 스캔 때문에 **정적 문자열 맵**으로 둔다.
+
+**문안 판단**: 무인정보단말기 접근성 요건은 적용 대상·시점이 시설 유형·규모에 따라
+단계적이므로 **시행일·규모 기준을 카피에 단정하지 않았다.** "설치 의무가 있습니다" 같은
+단정도 쓰지 않고, 산출물에 `베리어프리 사양 검토` 항목으로 **무엇을 해주는지**를 적었다.
+
+**검증**: typecheck·lint·build 통과, `/services/kiosk` SSG 생성. 라이트·다크·모바일
+스크린샷으로 그리드 빈칸 없음, `"여섯 개의 일."` 반영, 히어로 1줄 유지, 모바일 가로
+스크롤 없음 확인.
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)
+1-1. 키오스크 실제 취급 기종·리드타임·베리어프리 사양으로 임시값 교체 (ADR-016)
 2. `doc/06-security-compliance.md` 의 **높음** 리스크 4건
 3. 접수 알림(Slack/이메일) 구현
 4. 보관기간 경과 데이터 삭제 잡(`pg_cron`)

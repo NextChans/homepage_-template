@@ -28,7 +28,7 @@ components/
 
 content/
   site.ts       회사·내비·지표·파트너
-  services.ts   서비스 5종 (타입 + 데이터 + slug 조회 Map)
+  services.ts   서비스 6종 (타입 + 데이터 + slug 조회 Map + 개수 문안 serviceCountKo)
 
 lib/
   inquiry-schema.ts   zod 스키마 · 폼 상태 타입 (클라이언트/서버 공용)

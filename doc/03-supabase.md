@@ -15,7 +15,7 @@
 | `company` | text | 1–80자 | |
 | `email` | text | 5–160자 | 소문자 정규화 후 저장 |
 | `phone` | text | 8–24자 | |
-| `service_slug` | text | enum 체크 | 서비스 5종 + `other` |
+| `service_slug` | text | enum 체크 | 서비스 6종 + `other`. 추가 시 마이그레이션으로 제약을 함께 넓힌다 |
 | `message` | text | 10–2000자 | |
 | `privacy_consent` | boolean | **`check (privacy_consent)`** | false 는 저장 불가 |
 | `marketing_consent` | boolean | default false | 선택 동의 |

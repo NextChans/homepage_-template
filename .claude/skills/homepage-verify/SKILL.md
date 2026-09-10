@@ -15,7 +15,11 @@ npm run build
 
 `build` 로그에서 확인할 것:
 - `/services/[slug]` 아래에 서비스 slug 가 모두 나열되는지 (SSG 경로 누락 확인)
-- `/contact` 만 `ƒ (Dynamic)` 인지 (`searchParams` 사용 때문. 다른 페이지가 Dynamic 이면 원인을 찾는다)
+- `ƒ (Dynamic)` 이 `/admin`, `/admin/[id]`, `/admin/login` **3개뿐**인지.
+  다른 페이지가 Dynamic 이면 원인을 찾는다.
+  ⚠️ `/admin*` 이 `○ (Static)` 으로 나오면 **버그다** — 빌드 시점에는 `ADMIN_*` 환경변수가
+  없으므로 그때의 `notFound()` 가 산출물에 굳어 **영구 404** 가 된다.
+  해당 페이지에 `export const dynamic = 'force-dynamic'` 이 있는지 확인한다.
 - First Load JS 가 크게 늘지 않았는지 (기준 약 102 kB shared)
 
 ## 2. 스크린샷
