@@ -1,0 +1,163 @@
+@import 'tailwindcss';
+
+/* ───────────────────────────────────────────────────────────────
+   Design tokens — Apple Design Language
+   극도의 절제: 단색 기반 + 상호작용에만 Apple Blue.
+   ─────────────────────────────────────────────────────────────── */
+@theme {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue',
+    'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui,
+    sans-serif;
+
+  /* Neutrals */
+  --color-canvas: #ffffff;
+  --color-surface: #fbfbfd;
+  --color-surface-2: #f5f5f7;
+  --color-ink: #1d1d1f;
+  --color-ink-muted: #86868b;
+  --color-hairline: #d2d2d7;
+
+  /* Interactive — 유일한 강조색 */
+  --color-accent: #0066cc;
+  --color-accent-hover: #0077ed;
+
+  /* Squircle radii */
+  --radius-squircle: 1.25rem;
+  --radius-squircle-lg: 1.75rem;
+
+  /* Motion — 물리적이고 무겁게. 튀지 않는다. */
+  --ease-silk: cubic-bezier(0.32, 0.08, 0.24, 1);
+
+  --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 40px -8px rgb(0 0 0 / 0.08);
+  --shadow-lift-lg: 0 2px 4px rgb(0 0 0 / 0.04), 0 32px 80px -16px rgb(0 0 0 / 0.12);
+}
+
+@layer theme {
+  :root {
+    color-scheme: light dark;
+  }
+
+  /* Dark mode — 깊고 풍부한 검정 */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-canvas: #000000;
+      --color-surface: #0a0a0a;
+      --color-surface-2: #1d1d1f;
+      --color-ink: #f5f5f7;
+      --color-ink-muted: #86868b;
+      --color-hairline: #2a2a2c;
+      --color-accent: #2997ff;
+      --color-accent-hover: #52aeff;
+      --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.5), 0 12px 40px -8px rgb(0 0 0 / 0.6);
+      --shadow-lift-lg: 0 2px 4px rgb(0 0 0 / 0.5), 0 32px 80px -16px rgb(0 0 0 / 0.7);
+    }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'cv01';
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-accent) 22%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* 타이포그래피 스케일 — 헤드라인은 거대하고 트래킹은 타이트하게 */
+  .type-display {
+    font-size: clamp(2.75rem, 8vw, 6rem);
+    font-weight: 700;
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+  }
+
+  .type-headline {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.028em;
+  }
+
+  .type-title {
+    font-size: clamp(1.375rem, 2.6vw, 1.875rem);
+    font-weight: 600;
+    line-height: 1.18;
+    letter-spacing: -0.018em;
+  }
+
+  .type-lede {
+    font-size: clamp(1.125rem, 1.9vw, 1.4375rem);
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+    color: var(--color-ink-muted);
+  }
+
+  .type-body {
+    font-size: 1.0625rem;
+    line-height: 1.62;
+    letter-spacing: -0.006em;
+    color: var(--color-ink-muted);
+  }
+
+  .type-eyebrow {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--color-accent);
+  }
+
+  /* 글래스 내비게이션 — 아주 얇게 */
+  .glass {
+    background-color: color-mix(in oklab, var(--color-canvas) 72%, transparent);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  /* 스크롤 리빌 — 물리적으로 가라앉듯 */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 900ms var(--ease-silk),
+      transform 900ms var(--ease-silk);
+    will-change: opacity, transform;
+  }
+
+  .reveal[data-shown='true'] {
+    opacity: 1;
+    transform: none;
+  }
+}
