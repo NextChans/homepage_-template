@@ -377,10 +377,98 @@ where username = 'hong';
 문의 한 건의 처리 경과는 문의 상세의 **처리 이력**에서 보고, 여기는
 **누가 무엇을 했는지**를 본다.
 
-## 10. 남은 작업
+## 10. 보관기간 파기 (개인정보 3년 / 감사 로그 5년)
 
-- [ ] `admin_audit_log` 보관기간 정책 결정 + `pg_cron` 정리 잡
-      (마이그레이션 파일 하단에 예시 쿼리 있음)
+개인정보처리방침 4항에 적은 보관기간을 **실제로 집행하는 장치**다. 적어 두고 하지
+않으면 그 자체가 위반이다. 설계 근거는 ADR-021.
+
+### 적용 (마이그레이션 2개, **따로** 실행)
+
+- [ ] 1. `20260910000006_data_retention.sql` — 파기 함수 · 이력 테이블 · 보존 예외 컬럼
+- [ ] 2. `20260910000007_schedule_retention_job.sql` — `pg_cron` 스케줄
+
+> ⚠️ **두 파일을 한 번에 붙여넣지 말 것.** `create extension pg_cron` 이 플랜·권한에
+> 따라 거부되면 트랜잭션 전체가 롤백되어 **함수까지 함께 사라진다.**
+> 1번을 먼저 적용해 성공을 확인한 뒤 2번을 실행한다.
+> `pg_cron` 이 없으면 Database → Extensions 에서 검색해 Enable 한다.
+
+### 스케줄
+
+| 잡 | 시각(KST) | 대상 | 기간 |
+|---|---|---|---|
+| `purge-expired-inquiries` | 매일 03:10 | `inquiries` (+이력 cascade) | **3년** |
+| `purge-expired-audit-log` | 매일 03:30 | `admin_audit_log` | **5년** |
+
+감사 로그를 더 길게 두는 이유는 **개인정보를 담지 않기 때문**이다(`ip_hash` 만).
+사고 조사 목적이라 오래 남기는 편이 낫다.
+
+### ⚠️ 잡이 등록됐다고 도는 것은 아니다
+
+**등록 다음 날 반드시 확인한다.**
+
+```sql
+-- 파기 이력. triggered_by = 'cron' 행이 매일 쌓여야 한다.
+select executed_at, target_table, cutoff_at, deleted_count, retained_count, triggered_by
+from public.data_retention_log order by executed_at desc limit 20;
+```
+
+삭제 대상이 없으면 `deleted_count = 0` 인 행이 남는다 —
+**그 0 행이 "잡이 돌고 있다" 는 유일한 증거다.** 행이 아예 없으면 잡이 죽은 것이다.
+
+```sql
+-- pg_cron 쪽 실행 이력 (실패 사유가 여기 남는다)
+select jobid, status, return_message, start_time from cron.job_run_details
+order by start_time desc limit 20;
+
+-- 등록된 잡
+select jobname, schedule, active from cron.job order by jobname;
+```
+
+### 계약이 체결된 문의는 보존한다
+
+방침 4항의 예외 조항(**계약 체결 시 법령상 기간 보관 — 예: 전자상거래법 5년**)은
+`retain_until` 로 구현했다. 이 값이 미래면 3년이 지나도 파기하지 않는다.
+
+```sql
+update public.inquiries
+set retain_until = (created_at + interval '5 years')::date,
+    retain_reason = '계약 체결 — 전자상거래법 5년'
+where id = '<inquiry-id>';
+```
+
+> ⚠️ **설정은 수동이다.** 계약이 체결됐는데 아무도 설정하지 않으면 3년에 파기된다.
+> 계약 체결 시 이 값을 설정하는 것을 **운영 절차로** 정해야 한다 — 계약 체결 사실이
+> 이 시스템에 없어 코드로 강제할 수 없다.
+
+### 파기 전 사전 점검 · 수동 실행
+
+```sql
+-- 지금 지워질 건수 미리 보기 (실제로 지우지 않는다)
+select count(*) filter (where retain_until is null or retain_until < current_date) as 파기대상,
+       count(*) filter (where retain_until is not null and retain_until >= current_date) as 보존예외
+from public.inquiries
+where created_at < now() - interval '3 years';
+
+-- 수동 파기 (이력에 triggered_by = 'manual' 로 남는다)
+select * from public.purge_expired_inquiries('manual');
+select public.purge_expired_audit_log('manual');
+```
+
+> **보관기간은 함수 안에 상수로 박혀 있다.** 인자로 받지 않는 이유는 누군가
+> `interval '1 day'` 로 호출해 전체를 지우는 것을 막기 위해서다. 기간을 바꾸려면
+> 마이그레이션으로 함수를 교체한다 — 그러면 변경이 PR 로 검토·기록된다.
+
+### pg_cron 을 쓸 수 없는 플랜이면
+
+Vercel Cron + 보호된 라우트로 전환한다. 다만 **외부에서 호출 가능한 엔드포인트가
+생기므로** 인증 설계(시크릿 헤더 검증, 실패 시 로깅, 레이트리밋)를 먼저 문서화한 뒤
+구현한다. DB 안에서 끝나는 일을 밖으로 내는 것이므로 차선책이다.
+
+## 11. 남은 작업
+
+- [x] ~~`admin_audit_log` 보관기간 정책 + 정리 잡~~ — 5년, 구현 완료 (ADR-021)
+- [ ] **마케팅 수신 동의 철회 창구** — 방침은 "철회 시 즉시 파기" 라고 적었지만
+      철회를 받는 기능이 없다. 수동 처리 절차부터 문서화해야 한다
 - [x] ~~문의 상태 변경 기능~~ — 이력 테이블과 함께 구현 (2026-09-10, ADR-018)
 - [ ] **3년 보관기간 삭제 잡** — 직접 등록으로 개인정보가 다시 쌓이므로 더 미룰 수 없다
 - [ ] **개인정보처리방침 확정·공개** — 같은 이유
