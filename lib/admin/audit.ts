@@ -14,7 +14,17 @@ import { getServiceClient } from '@/lib/supabase/server'
  *    감사 로그가 안 쌓이는 상황 자체를 알아야 하기 때문이다.
  */
 
-export type AdminAction = 'login_success' | 'login_failed' | 'list_viewed' | 'record_viewed'
+/**
+ * ⚠️ 값을 늘리면 `supabase/migrations/` 의 `admin_audit_log_action_check` 제약도
+ *    **함께** 고친다. 한쪽만 고치면 insert 가 조용히 실패해 감사 로그가 비어버린다.
+ */
+export type AdminAction =
+  | 'login_success'
+  | 'login_failed'
+  | 'list_viewed'
+  | 'record_viewed'
+  | 'record_created'
+  | 'status_changed'
 
 /** 로그인 실패 임계값 */
 export const LOGIN_LOCK_WINDOW_MINUTES = 15

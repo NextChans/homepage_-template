@@ -130,8 +130,21 @@ CLI 를 쓸 수 없으면 Supabase 대시보드 → SQL Editor 에 파일 내용
 | 조회 컬럼 추가 | `lib/admin/inquiries.ts` 의 `select()` 와 `InquiryListItem`/`InquiryDetail` 타입. **개인정보 항목이면 목록에는 마스킹해서 넣는다** |
 | 새 감사 액션 추가 | `AdminAction` 타입 **과** 마이그레이션의 `check (action in (...))` 제약을 **함께** 고친다. 한쪽만 고치면 insert 가 조용히 실패하고 감사 로그가 비어 있게 된다 |
 | 새 관리자 페이지 추가 | `requireAdminSession()` 을 **그 페이지에서 직접** 호출한다(레이아웃 가드는 접근 제어가 아니다). `export const dynamic = 'force-dynamic'` 도 반드시 붙인다 — 빠지면 빌드 시점 `notFound()` 가 굳어 영구 404 가 된다 |
-| 쓰기 기능(상태 변경 등) 추가 | CSRF·변경 이력·권한을 함께 설계한다. 현재 읽기 전용인 것은 의도적 선택 |
+| 상태 변경 값 추가 | `lib/admin/status.ts` 의 `INQUIRY_STATUSES` **와** 마이그레이션의 `inquiries.status` · `inquiry_status_history.to_status` 두 제약을 **모두** 함께 고친다 |
+| 유입 경로 추가 | `INTAKE_CHANNELS` **와** `inquiries.intake_channel` 제약을 함께 고친다 |
+| 쓰기 함수 추가 | `lib/admin/inquiry-write.ts` 에만 둔다. 조회 모듈(`inquiries.ts`)에 섞지 않는다 — 어떤 코드가 개인정보를 변경하는지 import 로 드러나야 한다 |
+| 문의 원문 수정·삭제 기능 | 만들지 않았다. 접수 원문을 바꾸면 처리 이력의 근거가 사라진다. 필요하면 정정 이력을 함께 설계한다 |
 | CSV·엑셀 내보내기 | 만들지 않았다. 요구가 생기면 **반출 기록을 감사 로그에 남기는 설계를 먼저** 한다 |
+
+**쓰기 경로의 불변식**
+- Server Action 에서 **세션을 직접 확인한다.** 화면을 가리는 것만으로는 부족하다 —
+  Server Action 은 고유 id 로 등록되어 폼 없이도 POST 될 수 있다.
+- 상태 변경은 **반드시 `inquiry_status_history` 에 이력을 남긴다.** 이력 없는 상태 변경은
+  전자금융 도메인에서 결함이다.
+- `privacy_consent` 는 `literal(true)` 로 강제한다. 동의 없이 개인정보를 저장하는 경로를
+  만들지 않는다(DB check 제약과 짝을 이룬다).
+- 직접 등록에는 **관리자의 `ip_hash` 를 남기지 않는다.** 문의자의 유입 정보로 오해된다.
+  등록자는 `created_by` 로 남긴다.
 
 **절대 하지 않을 것**
 - `lib/admin/*` 를 클라이언트 컴포넌트에서 import (`'server-only'` 로 막혀 있다)

@@ -52,6 +52,54 @@ npm run screenshot -- .screenshots http://localhost:3100
 두 함정을 구분하는 방법: **텍스트는 보이는데 스타일이 없으면 함정 1**,
 **레이아웃은 잡혀 있는데 섹션이 비어 있으면 함정 2**다.
 
+### 함정 3 — 관리자 화면 테스트에서 `button[type="submit"]`.first() 는 **로그아웃**이다
+
+`app/admin/layout.tsx` 헤더에 로그아웃 폼이 있다. 그래서 관리자 페이지에는 폼이 2개고,
+`button[type="submit"]` 의 첫 번째가 로그아웃이다. 이걸 클릭하면
+**세션이 끊겨 `/admin/login` 으로 튕기고, 마치 "액션이 실행되지 않는 버그" 처럼 보인다.**
+실제로 이 착각으로 가드·쿠키·`secure` 속성까지 의심하며 오래 헤맸다.
+
+```js
+// ✗ 로그아웃을 누른다
+await page.locator('button[type="submit"]').first().click()
+// ✓ 대상 버튼으로 좁힌다
+await page.locator('button[type="submit"]:has-text("문의 등록")').click()
+```
+
+### 함정 4 — Server Action 제출은 **303 리다이렉트 완료를 기다려야** 한다
+
+`waitForLoadState('networkidle')` 만으로는 부족하다. 클릭 직후 단정하면 아직 이전
+경로여서 정상 동작이 실패로 보인다. `waitForURL` 을 쓴다.
+
+```js
+await page.locator('...').click()
+await page.waitForURL((u) => new URL(u).pathname === '/admin', { timeout: 15000 })
+```
+
+### 함정 5 — 브라우저 기본 검증을 `setAttribute` 로 벗길 수 없다
+
+서버 검증(zod)을 확인하려고 `type="email"` 을 `text` 로 바꿔도 **React 가 리렌더에서
+속성을 복원**한다. 그러면 제출 자체가 브라우저에서 막혀 POST 가 서버에 도달하지 않고,
+"서버 검증이 없다" 는 잘못된 결론에 이른다.
+→ `required` 제거는 통하지만 `type` 변경은 통하지 않는다. 서버 검증은
+**스키마를 단독 실행**해 확인하는 편이 확실하다.
+
+```bash
+node -e '위 스키마를 그대로 옮겨 safeParse 결과를 출력'
+```
+
+### 함정 6 — 로컬 검증용 가짜 Supabase 주소는 **연결이 즉시 거부되는 것**으로
+
+`https://fake.supabase.co` 처럼 실존하지 않는 외부 도메인을 쓰면 요청이 프록시를 타고
+수 초씩 지연돼 브라우저 타이밍이 전부 엉킨다. `http://127.0.0.1:9` 를 쓰면 즉시
+ECONNREFUSED 가 되어 화면·검증 흐름만 깔끔하게 볼 수 있다.
+
+```bash
+export NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:9"
+export SUPABASE_SECRET_KEY="sb_secret_local_refused"
+export NO_PROXY="127.0.0.1,localhost"
+```
+
 ## 3. 눈으로 볼 체크리스트
 
 - [ ] 히어로: 하위 페이지 헤드라인이 3줄 이상으로 깨지지 않는다 (`size="headline"` 확인)

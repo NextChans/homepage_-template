@@ -5,6 +5,7 @@ import { services } from '@/content/services'
 import { auditContext, logAdminAction } from '@/lib/admin/audit'
 import { requireAdminSession } from '@/lib/admin/guard'
 import { listInquiries } from '@/lib/admin/inquiries'
+import { CHANNEL_LABEL, STATUS_LABEL, isInquiryStatus, isIntakeChannel } from '@/lib/admin/status'
 import { isSupabaseConfigured } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {
@@ -19,14 +20,6 @@ const serviceLabel = new Map<string, string>([
   ...services.map((s) => [s.slug, s.name] as [string, string]),
   ['other', '기타 문의'],
 ])
-
-const statusLabel: Record<string, string> = {
-  received: '접수',
-  in_review: '검토 중',
-  contacted: '연락 완료',
-  closed: '종료',
-  spam: '스팸',
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('ko-KR', {
@@ -50,13 +43,22 @@ export default async function AdminInquiriesPage() {
     <Container className="py-12">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="type-title">상담 문의</h1>
-        <p className="font-mono text-[12px] text-ink-muted">
-          {rows === null ? '조회 실패' : `${rows.length}건`}
-        </p>
+        <div className="flex items-center gap-4">
+          <p className="font-mono text-[12px] text-ink-muted">
+            {rows === null ? '조회 실패' : `${rows.length}건`}
+          </p>
+          <Link
+            href="/admin/new"
+            className="rounded-full bg-accent px-4 py-2 text-[13px] font-medium text-white transition-colors duration-300 hover:bg-accent-hover"
+          >
+            직접 등록
+          </Link>
+        </div>
       </div>
 
       <p className="type-body mt-3 text-[14px]">
         목록에서는 이메일·연락처를 마스킹합니다. 전체 값은 상세에서 확인하세요.
+        전화·이메일로 받은 문의는 <b className="font-medium text-ink">직접 등록</b>으로 남기세요.
         <b className="font-medium text-ink"> 모든 조회는 감사 로그에 기록됩니다.</b>
       </p>
 
@@ -72,16 +74,33 @@ export default async function AdminInquiriesPage() {
         <div className="mt-8 rounded-squircle-lg border border-hairline bg-surface p-10 text-center">
           <p className="type-title">아직 접수된 문의가 없습니다.</p>
           <p className="type-body mx-auto mt-3 max-w-md text-[14px]">
-            현재 상담 폼이 비활성 상태입니다(<code>content/features.ts</code>). 전화·이메일로만
-            문의를 받고 있어 이 화면에는 데이터가 쌓이지 않습니다.
+            현재 홈페이지 상담 폼이 비활성 상태입니다(<code>content/features.ts</code>).
+            전화·이메일로 받은 문의는 <b className="font-medium text-ink">직접 등록</b>으로
+            이력을 남길 수 있습니다.
           </p>
+          <Link
+            href="/admin/new"
+            className="mt-6 inline-block rounded-full bg-accent px-5 py-2.5 text-[14px] font-medium text-white transition-colors duration-300 hover:bg-accent-hover"
+          >
+            직접 등록
+          </Link>
         </div>
       ) : (
         <div className="mt-8 overflow-x-auto">
           <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-hairline">
-                {['접수일시', '회사', '담당자', '분야', '이메일', '연락처', '상태', ''].map((h) => (
+                {[
+                  '접수일시',
+                  '경로',
+                  '회사',
+                  '담당자',
+                  '분야',
+                  '이메일',
+                  '연락처',
+                  '상태',
+                  '',
+                ].map((h) => (
                   <th
                     key={h}
                     className="whitespace-nowrap px-3 py-2.5 text-left font-mono text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-muted"
@@ -97,20 +116,25 @@ export default async function AdminInquiriesPage() {
                   <td className="whitespace-nowrap px-3 py-3 font-mono text-[12px] tabular-nums text-ink-muted">
                     {formatDate(row.createdAt)}
                   </td>
+                  <td className="whitespace-nowrap px-3 py-3 text-ink-muted">
+                    {isIntakeChannel(row.intakeChannel)
+                      ? CHANNEL_LABEL[row.intakeChannel]
+                      : row.intakeChannel}
+                  </td>
                   <td className="px-3 py-3 text-ink">{row.company}</td>
                   <td className="px-3 py-3 text-ink">{row.name}</td>
                   <td className="whitespace-nowrap px-3 py-3 text-ink-muted">
                     {serviceLabel.get(row.serviceSlug) ?? row.serviceSlug}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 font-mono text-[12px] text-ink-muted">
-                    {row.emailMasked}
+                    {row.emailMasked ?? '—'}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 font-mono text-[12px] text-ink-muted">
-                    {row.phoneMasked}
+                    {row.phoneMasked ?? '—'}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
                     <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] text-ink">
-                      {statusLabel[row.status] ?? row.status}
+                      {isInquiryStatus(row.status) ? STATUS_LABEL[row.status] : row.status}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 text-right">
