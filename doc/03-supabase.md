@@ -25,6 +25,7 @@
 | `inquiry_status_history` | 처리 상태 변경 이력 (append-only, 문의 삭제 시 cascade) | 동일 |
 | `admin_audit_log` | 관리자 콘솔 행위 감사 (FK 없음 → 대상 삭제 후에도 보존) | 동일 |
 | `admin_users` | 관리자 콘솔 계정 (scrypt 해시만, 역할 admin/agent) | 동일 |
+| `data_retention_log` | 보관기간 파기 이력 (건수·기준일만, 개인정보 없음) | 동일 |
 
 **전부 `service_role` 전용이다.** anon/authenticated 는 어떤 테이블에도 접근할 수 없다.
 | `message` | text | 10–2000자 | |

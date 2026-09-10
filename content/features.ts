@@ -29,8 +29,11 @@ export const features: Features = {
    *   1. `features.privacyPolicy` 를 함께 `true` 로 켠다.
    *      개인정보를 수집하면서 처리방침을 공개하지 않는 것은 위반이다.
    *   2. `app/privacy/page.tsx` 의 초안 문구를 확정한다 (특히 4항 국외이전, 8항 시행일).
-   *   3. 보관기간(3년) 경과 데이터 삭제 잡을 구성한다 (`pg_cron`).
-   *      방침에 기간을 적고 삭제가 없으면 그 자체가 위반이다.
+   *   3. 보관기간 파기 잡이 **실제로 돌고 있는지** 확인한다.
+   *      함수·스케줄은 구현되어 있다 (마이그레이션 20260910000006/7, ADR-021).
+   *      확인 방법: `public.data_retention_log` 에 `triggered_by = 'cron'` 행이
+   *      매일 쌓이는지 본다. 삭제 대상이 없으면 `deleted_count = 0` 행이 남는데,
+   *      **그 0 행이 잡이 돌고 있다는 증거다.** 행이 없으면 잡이 안 도는 것이다.
    *   4. 접수 알림을 활성화한다 (`SLACK_INQUIRY_WEBHOOK_URL`).
    *      사이트에 "1영업일 내 회신" 을 명시하므로 알림 없이는 약속을 지킬 수 없다.
    *   5. Supabase 환경변수 4개가 설정되어 있는지 확인한다 (`doc/09-deployment.md`).
