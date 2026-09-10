@@ -14,6 +14,16 @@ export const metadata: Metadata = {
     template: `%s — ${site.name}`,
   },
   description: site.description,
+  /**
+   * ⚠️ **정규 URL. 도메인을 붙인 뒤에도 `*.vercel.app` 은 계속 응답한다** —
+   *    Vercel 이 자동 배정하는 주소는 제거할 수 없다. canonical 이 없으면 같은
+   *    내용이 두 호스트로 색인되어 중복 콘텐츠가 된다.
+   *
+   * `'./'` 는 `metadataBase` 기준 **현재 경로**로 해석된다. 페이지마다 적지 않아도
+   * `/services/kiosk` 는 `https://witus.kr/services/kiosk` 가 된다.
+   * ⚠️ 절대 URL 을 박으면 **모든 페이지가 홈을 가리켜** 하위 페이지가 색인에서 사라진다.
+   */
+  alternates: { canonical: './' },
   openGraph: {
     type: 'website',
     locale: site.locale,

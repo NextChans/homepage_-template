@@ -722,6 +722,36 @@ ADR-023, Analytics 는 ADR-024.
 ⚠️ **`WORK IN TRUST US` 는 영어 비문이다.** 사용자가 유지하기로 결정했다.
 임의로 `WORK IN TRUST` 로 줄이지 않는다.
 
+**커스텀 도메인 `witus.kr` 준비 (2026-09-10)**
+
+도메인을 구입했다. **코드 준비는 끝났고 남은 것은 대시보드 + DNS 작업**이다
+(`doc/09-deployment.md` 3-4절, 판단은 ADR-025).
+
+| 변경 | 내용 |
+|---|---|
+| `lib/site-url.ts` | 기본값을 `https://witus.kr` 로. `isPlaceholderSiteUrl` 제거 |
+| `app/layout.tsx` | `alternates: { canonical: './' }` 추가 |
+| `doc/09-deployment.md` | 3-4절 — Vercel·DNS 절차와 확인 명령 |
+
+**판단 3가지**
+1. **apex 를 정규로 삼는다.** `www` 는 301. apex 는 CNAME 을 못 써서 A 레코드가 되는
+   대가가 있다(Vercel IP 변경 시 수동 추적).
+2. **canonical 을 넣었다.** 도메인을 붙여도 `*.vercel.app` 은 **사라지지 않는다** —
+   제거할 수 없다. 두 호스트가 영구히 응답하므로 색인을 통합해야 한다.
+   ⚠️ `'./'` 상대 경로여야 한다. 절대 URL 을 박으면 **모든 페이지가 홈을 가리켜**
+   하위 페이지가 색인에서 사라진다. 경로별로 다르게 나오는지 확인했다.
+3. **도메인을 코드에 박았다.** 환경별 비밀값이 아니라 프로젝트의 사실이다. 우선순위
+   2번(`VERCEL_PROJECT_PRODUCTION_URL`)은 그대로 둬서 **도메인 연결이 자동 반영**된다.
+
+**검증**: canonical 경로별 해석(`/`, `/services`, `/about`, `/services/kiosk`),
+sitemap·robots·og:image 모두 `witus.kr`. ⚠️ **DNS·인증서는 검증하지 못했다** —
+이 환경에서 할 수 없는 작업이다.
+
+⚠️ **HSTS preload 주의.** `includeSubDomains; preload` 를 보내고 있다. 헤더만으로는
+목록에 등록되지 않지만(hstspreload.org 제출 필요), **`includeSubDomains` 는 지금도
+효력이 있어** apex 를 방문한 브라우저가 모든 서브도메인에 HTTPS 를 강제한다.
+HTTP 서브도메인을 붙일 계획이면 먼저 확인해야 한다.
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)
@@ -729,6 +759,9 @@ ADR-023, Analytics 는 ADR-024.
 1-2. **MFA** — 계정 분리는 됐으나 인증 강도는 ID/PW 그대로 (ADR-019)
 2. `doc/06-security-compliance.md` 의 **높음** 리스크 4건
 3. 접수 알림(Slack/이메일) 구현
+3-1. **`witus.kr` 도메인 연결** — 코드는 준비됨. Vercel Domains 추가 + DNS 설정이
+   남았다(`doc/09-deployment.md` 3-4절). 연결 후 `/sitemap.xml` 이 `witus.kr` 인지
+   확인하고, 아니면 `NEXT_PUBLIC_SITE_URL` 을 명시한다.
 4. ~~보관기간 경과 데이터 삭제 잡(`pg_cron`)~~ — 코드 완료 (2026-09-10, ADR-021).
    **단 마이그레이션 006·007 을 Supabase 에서 실행하고 다음 날 `data_retention_log`
    에 `triggered_by = 'cron'` 행이 생기는지 확인해야 실제로 완료다.**

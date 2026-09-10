@@ -132,6 +132,94 @@ Config 는 저장 후에도 값을 다시 볼 수 있고, Secret 은 write-only 
 
 ---
 
+### 3-4. 커스텀 도메인 (`witus.kr`)
+
+**코드는 이미 준비되어 있다.** 남은 것은 **대시보드 + DNS 작업**이고, 그건 사람이 해야 한다.
+
+#### 코드가 어떻게 따라오는가
+
+`lib/site-url.ts` 의 우선순위 2번(`VERCEL_PROJECT_PRODUCTION_URL`)이 **Vercel 이 주입하는
+프로젝트의 프로덕션 도메인**이다. 도메인을 프로덕션으로 붙이면 이 값이 바뀌고
+`sitemap.xml` · `robots.txt` · `og:image` · `canonical` 이 **전부 자동으로** 따라온다.
+**환경변수를 따로 설정하지 않아도 된다.**
+
+> ⚠️ 단, 이 동작을 **확인은 해야 한다.** 도메인 연결 후 `/sitemap.xml` 이 여전히
+> `*.vercel.app` 이면, `NEXT_PUBLIC_SITE_URL=https://witus.kr` 를 Vercel 환경변수
+> (Production)에 명시하고 재배포한다. 우선순위 1번이라 항상 이긴다.
+
+#### 정규 도메인은 **apex(`witus.kr`)** 다
+
+`www.witus.kr` 은 apex 로 **301 리다이렉트**한다. 이유는 ADR-025 에 있다 — 요약하면
+둘 다 응답하게 두면 같은 내용이 두 주소로 색인된다.
+
+#### 1) Vercel 에 도메인 추가
+
+**Settings → Domains → Add**
+
+1. `witus.kr` 추가 → **Production** 브랜치(`main`)에 연결
+2. `www.witus.kr` 추가 → **Redirect to `witus.kr`** (301) 선택
+
+#### 2) DNS 설정 (도메인 등록업체)
+
+**⚠️ 값은 반드시 Vercel 대시보드가 표시하는 것을 그대로 쓴다.** 프로젝트·리전에 따라
+다르고 Vercel 이 바꾸기도 한다. 아래는 **형태**만 참고한다.
+
+| 호스트 | 타입 | 값 |
+|---|---|---|
+| `witus.kr` (apex, `@`) | **A** | 대시보드가 표시하는 IP |
+| `www` | **CNAME** | 대시보드가 표시하는 `*.vercel-dns.com` |
+
+> **apex 는 CNAME 을 쓸 수 없다**(RFC 제약). 그래서 A 레코드다. 등록업체가 ALIAS/ANAME 을
+> 지원하면 그걸 써도 된다 — Vercel IP 가 바뀌어도 따라간다.
+>
+> `.kr` 등록업체(가비아·후이즈·카페24 등) DNS 관리 화면에서 설정한다. 전파에 보통
+> 수 분~수 시간이 걸린다. **TTL 을 낮춰 두면(300초) 되돌리기가 쉽다.**
+
+#### 3) 연결 후 확인
+
+```bash
+# ⚠️ content_type 을 반드시 함께 본다 (homepage-verify 함정 7)
+for p in / /sitemap.xml /robots.txt /icon.svg /opengraph-image.png; do
+  curl -sS -o /dev/null -w "$p  %{http_code}  %{content_type}\n" "https://witus.kr$p"
+done
+
+# canonical 이 경로별로 맞는지 — 전부 홈을 가리키면 잘못된 것이다
+for p in / /services /about; do
+  curl -s "https://witus.kr$p" | grep -o '<link rel="canonical" href="[^"]*"'
+done
+
+# www 가 301 로 apex 로 가는지
+curl -sS -o /dev/null -w "www → %{http_code} %{redirect_url}\n" https://www.witus.kr/
+```
+
+```
+[ ] https://witus.kr 이 열린다 (인증서 자동 발급 — Vercel 이 처리)
+[ ] https://www.witus.kr → 301 → https://witus.kr
+[ ] /sitemap.xml 의 URL 이 witus.kr 이다
+[ ] canonical 이 경로별로 다르다 (전부 홈이면 절대 URL 을 박은 것)
+[ ] og:image 가 https://witus.kr/opengraph-image.png 다
+[ ] 파비콘·OG 가 image/svg+xml · image/png 로 온다 (text/html 이면 잘못된 것)
+```
+
+#### ⚠️ 도메인 전환 시 주의 3가지
+
+1. **HSTS preload 는 되돌리기 어렵다.** `next.config.ts` 가
+   `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` 를 보낸다.
+   - **헤더를 보내는 것만으로는 preload 목록에 등록되지 않는다** — hstspreload.org 에
+     직접 제출해야 한다. **서브도메인 계획이 확정되기 전에는 제출하지 않는다.**
+       제출 후 제거는 몇 달이 걸린다.
+   - 다만 **`includeSubDomains` 는 지금도 효력이 있다.** 브라우저가 `witus.kr` 을 한 번
+     방문하면 **모든 서브도메인에 HTTPS 를 강제**한다. HTTP 만 제공하는 서브도메인
+     (예: 구형 메일·그룹웨어)을 붙일 계획이면 **먼저 확인**해야 한다.
+2. **관리자 세션이 끊긴다.** 세션 쿠키는 호스트에 묶인다. 도메인이 바뀌면
+   `*.vercel.app` 에서 로그인한 세션은 `witus.kr` 에서 인식되지 않는다.
+   다시 로그인하면 된다 — 데이터에는 영향이 없다.
+3. **`*.vercel.app` 은 계속 응답한다.** Vercel 자동 배정 주소는 제거할 수 없다.
+   그래서 `canonical` 을 넣었다(ADR-025). 색인은 canonical 로 통합되지만,
+   **주소 자체는 살아 있다** — 대외 문서·명함에는 `witus.kr` 만 쓴다.
+
+---
+
 ## 4. 배포 후 검증
 
 ```
@@ -175,6 +263,7 @@ Config 는 저장 후에도 값을 다시 볼 수 있고, Secret 은 write-only 
 | 항목 | 값 |
 |---|---|
 | Production URL | https://homepage-template-ivory.vercel.app |
+| 커스텀 도메인 | `witus.kr` **구입 완료 · 연결 대기** (3-4절 절차) |
 | 기본 브랜치 | `main` (머지 커밋 `014909e`) |
 | 함수 리전 | Seoul (`icn1`) — 대시보드 설정 |
 | Supabase 리전 | 서울 (`ap-northeast-2`) |

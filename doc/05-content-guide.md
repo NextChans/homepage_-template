@@ -17,7 +17,11 @@
 - [ ] `content/site.ts` → `company.address`
 - [ ] `content/site.ts` → `company.tel`, `company.fax`, `company.email`
 - [ ] `content/site.ts` → `company.privacyOfficer` (개인정보 보호책임자 성명·연락처)
-- [ ] `.env` → `NEXT_PUBLIC_SITE_URL` (실도메인)
+- [x] ~~`.env` → `NEXT_PUBLIC_SITE_URL` (실도메인)~~ — **불필요해졌다.**
+      정규 도메인 `witus.kr` 이 `lib/site-url.ts` 의 기본값이고, Vercel 이 주입하는
+      `VERCEL_PROJECT_PRODUCTION_URL` 이 도메인 연결을 자동 반영한다(ADR-025).
+      **도메인 연결 후 `/sitemap.xml` 이 `witus.kr` 인지 확인**하고, 아니면 그때만
+      `NEXT_PUBLIC_SITE_URL=https://witus.kr` 을 명시한다.
 - [x] `app/privacy/page.tsx` → 4항 보관 리전 = 서울(`ap-northeast-2`) 반영 (2026-09-10)
 - [ ] `app/privacy/page.tsx` → 4항 **국외 이전 해당 여부 법무 확정** 후 "검토 진행 중" 문구 교체
 - [ ] `app/privacy/page.tsx` → 8항 시행일
