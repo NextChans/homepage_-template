@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { features } from '@/content/features'
 import { company, nav, site } from '@/content/site'
 import { services } from '@/content/services'
+import { BrandMark } from './brand-mark'
 import { Container } from './ui'
 
 export function SiteFooter() {
@@ -78,7 +79,17 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-12 border-t border-hairline pt-8">
+        {/* 브랜드 락업 — 심볼 + 워드마크 + 영문 보조 문구.
+            헤더는 좁아 심볼+사명까지만 두고, 유래를 담은 `motto` 는 여기 둔다. */}
+        <div className="mt-12 flex items-center gap-2.5 border-t border-hairline pt-8 text-ink">
+          <BrandMark className="h-6 w-auto" />
+          <span className="text-[17px] font-semibold tracking-[-0.02em]">{site.name}</span>
+          <span className="text-[11px] font-medium tracking-[0.14em] text-ink-muted">
+            {site.motto}
+          </span>
+        </div>
+
+        <div className="mt-6">
           <p className="text-[12px] leading-relaxed text-ink-muted">
             {company.address} · {site.legalName} · 대표 {company.ceo} · 사업자등록번호{' '}
             {company.bizNo}

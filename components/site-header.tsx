@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { nav, site } from '@/content/site'
+import { BrandMark } from './brand-mark'
 import { Container } from './ui'
 
 export function SiteHeader() {
@@ -29,11 +30,14 @@ export function SiteHeader() {
         <div className="flex h-12 items-center justify-between">
           <Link
             href="/"
-            className="text-[17px] font-semibold tracking-[-0.02em] text-ink"
+            className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.02em] text-ink"
             aria-label={`${site.name} 홈`}
           >
+            {/* 심볼은 `currentColor` — 부모의 `text-ink` 를 물려받는다. 골드를 쓰지
+                않는다(팔레트 (A)안). 근거는 `content/brand.ts` 주석. */}
+            <BrandMark className="h-[19px] w-auto" />
             {site.name}
-            <span className="ml-1.5 text-[11px] font-medium tracking-[0.08em] text-ink-muted">
+            <span className="text-[11px] font-medium tracking-[0.08em] text-ink-muted">
               {site.nameKo}
             </span>
           </Link>

@@ -1,6 +1,8 @@
+import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
+import { features } from '@/content/features'
 import { site } from '@/content/site'
 import { siteUrl } from '@/lib/site-url'
 import './globals.css'
@@ -49,6 +51,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SiteHeader />
         <main id="main">{children}</main>
         <SiteFooter />
+        {/*
+          Vercel Web Analytics. Vercel 대시보드 토글만으로는 수집되지 않고 이
+          컴포넌트가 있어야 스크립트가 주입된다 — 둘 다 켜져야 동작한다.
+          수집 항목과 남은 위험은 `content/features.ts` 의 `analytics` 주석에 있다.
+        */}
+        {features.analytics ? <Analytics /> : null}
       </body>
     </html>
   )

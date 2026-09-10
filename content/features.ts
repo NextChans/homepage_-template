@@ -17,6 +17,7 @@
 type Features = {
   inquiryForm: boolean
   privacyPolicy: boolean
+  analytics: boolean
 }
 
 export const features: Features = {
@@ -51,4 +52,27 @@ export const features: Features = {
    *    `features.inquiryForm` 을 켜면 이 플래그도 반드시 함께 켠다.
    */
   privacyPolicy: false,
+
+  /**
+   * Vercel Web Analytics (`@vercel/analytics`).
+   *
+   * Vercel 대시보드의 토글만으로는 **아무것도 수집되지 않는다.** 페이지에
+   * `<Analytics />` 컴포넌트가 있어야 스크립트가 주입된다. 이 플래그가 그 컴포넌트를
+   * 켠다. 대시보드 토글과 **둘 다** 켜져 있어야 동작한다.
+   *
+   * 수집되는 것 (쿠키 미사용, 방문자 식별자 미생성):
+   *   페이지 경로 · 리퍼러 · 대략적 위치(국가 수준) · 기기/브라우저 종류
+   *
+   * ⚠️ **이 플래그를 켜면 `app/privacy/page.tsx` 의 자동 수집·위탁 항목이 함께
+   *    맞아야 한다.** 이미 반영해 두었다(1항 자동 수집, 4항 수탁자 Vercel Inc.).
+   *    수집 항목을 더 늘리면 그 페이지를 **반드시 함께** 고친다.
+   *
+   * ⚠️ **남은 위험: `features.privacyPolicy` 가 `false` 인 동안 `/privacy` 는 404 다.**
+   *    수집은 하는데 처리방침을 볼 수 없는 상태이고, 이는 개인정보보호법 제30조
+   *    (처리방침 수립·공개) 관점에서 문제가 된다. 해소에는 실제 사업자등록번호와
+   *    개인정보 보호책임자 값이 필요하다(현재 `content/site.ts` 의 TODO).
+   *    **값이 채워지면 `privacyPolicy` 를 켠다.** 그때까지는 이 플래그를 끄는 것이
+   *    안전한 선택이다 — 사용자 판단으로 켜 둔 상태다(2026-09-10).
+   */
+  analytics: true,
 }
