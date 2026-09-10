@@ -42,6 +42,27 @@
 - `npm run build` 통과 — 15 페이지 생성, 공유 First Load JS 약 102 kB
 - 라이트/다크/모바일 스크린샷 육안 확인 완료
 
+### 브랜치 · PR 구성
+
+저장소가 커밋 0개 상태였기 때문에 최초 푸시된 `claude/apple-style-homepage-iv3pxl` 이 GitHub 에서
+**기본 브랜치로 자동 지정**되었다. base 로 삼을 브랜치가 없어 PR 을 열 수 없는 상태였다.
+
+정리한 방법:
+
+1. 빈 트리로 초기 커밋(`2f4f6a6 chore: 저장소 초기화`)을 만들어 `main` 브랜치로 푸시
+   - `git commit-tree $(git hash-object -t tree /dev/null)` — 작업 트리를 건드리지 않는 plumbing 방식.
+     `git switch --orphan` 은 추적 파일이 untracked 로 남아 되돌아올 때 충돌하므로 쓰지 않았다.
+2. 피처 브랜치를 `main` 위로 재배치 — `git rebase --onto main --root`
+3. rebase 전/후 **트리 해시가 동일함을 검증**(`0d1acf6…`)한 뒤 `--force-with-lease` 로 푸시
+   - 이 브랜치는 같은 세션에서 우리가 푸시한 커밋만 담고 있어 히스토리 재작성이 안전했다
+4. `main` ← 피처 브랜치 draft PR 생성 → [#1](https://github.com/NextChans/homepage_-template/pull/1)
+   (57 파일, +10,268, `mergeable_state: clean`)
+
+`main` 이 빈 커밋이므로 PR diff 가 곧 작업 전체다.
+
+> **남은 수동 작업**: 저장소 기본 브랜치가 아직 피처 브랜치다. GitHub Settings → General →
+> Default branch 에서 `main` 으로 변경해야 한다. API 로 바꿀 도구가 없어 처리하지 못했다.
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)
@@ -49,3 +70,4 @@
 3. 접수 알림(Slack/이메일) 구현
 4. 보관기간 경과 데이터 삭제 잡(`pg_cron`)
 5. 파비콘 / OG 이미지
+6. 저장소 기본 브랜치를 `main` 으로 변경 (수동)
