@@ -161,6 +161,25 @@ Config 는 저장 후에도 값을 다시 볼 수 있고, Secret 은 write-only 
 > 여기에 리다이렉트를 먼저 걸면 **사이트가 접속 불가가 된다.**
 
 1. **Add** → `witus.kr` → **Connect to an environment: Production**
+
+   > ⚠️ **`Redirect apex domains to www (recommended)` 체크박스를 해제한다.**
+   > **기본값이 켜져 있고**, 켠 채로 추가하면 Vercel 이 **반대로** 구성한다 —
+   > `www.witus.kr` 이 본체가 되고 `witus.kr` 이 거기로 리다이렉트된다.
+   >
+   > `Add Another Domain` 은 비워 둔다. 이 다이얼로그는 "여러 도메인을 **하나의
+   > 목적지**로" 추가하는 것이라, `www` 를 같이 넣으면 둘 다 Production 에 붙는다.
+   > `www` 는 3단계에서 따로 추가한다.
+   >
+   > **Vercel 이 www 를 권하는 근거와 우리가 apex 를 고른 이유**
+   > | 근거 | 판단 |
+   > |---|---|
+   > | CNAME 이 Vercel IP 변경을 자동 추적 | **유효한 이점.** 등록업체가 ALIAS/ANAME 을 지원하면 apex 에서도 해소된다 — DNS 화면에서 확인할 것 |
+   > | apex 쿠키가 모든 서브도메인으로 전송 | **우리에겐 해당 없다.** `lib/admin/auth.ts` 가 `Domain` 속성 없이 쿠키를 굽는다 → **host-only** 라 서브도메인으로 가지 않는다 |
+   >
+   > → 남는 것은 IP 추적 하나뿐이고, 짧은 주소의 값이 그보다 크다고 판단했다(ADR-025).
+   > **www 로 바꾸려면** `lib/site-url.ts` 의 `DEFAULT_SITE_URL` 과 이 문서를 함께
+   > 고친다. 프로덕션은 Vercel 환경변수가 이겨서 동작하지만 **로컬 개발만 apex 를
+   > 내보내 어긋난다.**
 2. DNS 설정(2절) 후 **`https://witus.kr` 이 실제로 열리는 것을 확인한다.**
    여기까지 되면 사이트는 두 주소로 열린다 — 이제 정리해도 안전하다.
 3. **Add** → `www.witus.kr` → **Redirect to Another Domain** → `witus.kr`
