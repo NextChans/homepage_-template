@@ -60,7 +60,7 @@ description: 이 홈페이지 템플릿에 새 페이지나 새 섹션을 Apple 
 1. `app/<route>/page.tsx` 생성. 기본은 **Server Component** (`'use client'` 금지).
    상호작용이 필요한 부분만 `components/` 에 별도 클라이언트 컴포넌트로 분리한다.
 2. `export const metadata: Metadata` 에 `title`, `description` 을 넣는다.
-   `title` 은 layout 의 template(`%s — 넥스트챈스`)이 자동 적용된다.
+   `title` 은 layout 의 template(`%s — Wit`)이 자동 적용된다.
 3. 문안은 `content/` 로 빼거나 페이지 상단 상수로 선언한다 (`homepage-content` 스킬 참고).
 4. `app/sitemap.ts` 의 `staticRoutes` 에 경로를 추가한다. **누락 시 SEO 에서 사라진다.**
 5. 상단 메뉴에 노출할 경우 `content/site.ts` 의 `nav` 에 추가한다.

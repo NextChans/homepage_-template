@@ -106,7 +106,9 @@ export async function createUser(_prev: UserFormState, formData: FormData): Prom
   })
 
   revalidatePath('/admin/users')
-  redirect(`/admin/users/${result.id}`)
+  // ?created=1 → 상세 화면에서 "담당자에게 전달할 내용" 안내를 한 번 띄운다.
+  // 계정만 만들어 두고 무엇을 전달해야 하는지 모르면 첫 로그인이 막힌다.
+  redirect(`/admin/users/${result.id}?created=1`)
 }
 
 export async function changeUserRole(
