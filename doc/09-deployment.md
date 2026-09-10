@@ -14,7 +14,7 @@ Supabase 대시보드와 Vercel 대시보드 사이에서만 오가게 한다. �
 | 프로젝트 URL | `NEXT_PUBLIC_SUPABASE_URL` → `SUPABASE_URL` | 공개 |
 | 비밀키 | `SUPABASE_SECRET_KEY` → `SUPABASE_SERVICE_ROLE_KEY` | **비공개** |
 | IP 해시 salt | `INQUIRY_IP_HASH_SALT` | **비공개** |
-| 사이트 절대 URL | `NEXT_PUBLIC_SITE_URL` | 공개 |
+| 사이트 절대 URL | `NEXT_PUBLIC_SITE_URL` → `VERCEL_PROJECT_PRODUCTION_URL`(Vercel 자동) → 플레이스홀더 | 공개 |
 
 - 신형 키(`sb_secret_...` / `sb_publishable_...`)를 먼저 본다.
   레거시 `anon` / `service_role` JWT 는 **2026년 말 지원 종료 예정**이므로 신형을 쓴다.
@@ -22,6 +22,9 @@ Supabase 대시보드와 Vercel 대시보드 사이에서만 오가게 한다. �
   `NEXT_PUBLIC_SUPABASE_URL` 을 주입한다. 그래서 두 체계를 모두 받도록 만들었다 (ADR-009).
 - `INQUIRY_IP_HASH_SALT` 는 **Supabase 에서 받는 값이 아니다.** 직접 만든다:
   `openssl rand -hex 32`
+- `NEXT_PUBLIC_SITE_URL` 을 설정하지 않으면 `lib/site-url.ts` 가
+  **Vercel 이 주입하는 `VERCEL_PROJECT_PRODUCTION_URL` 을 자동으로 쓴다**(ADR-013).
+  실도메인이 생기면 `NEXT_PUBLIC_SITE_URL` 로 덮어쓰면 되고, 그것이 항상 우선한다.
 
 ---
 
@@ -163,3 +166,19 @@ Config 는 저장 후에도 값을 다시 볼 수 있고, Secret 은 write-only 
         명시](https://supabase.com/docs/guides/security/gdpr-compliance)한다.
         "국외 이전 없음" 으로 단정하지 않았다.
 - [ ] `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)
+
+
+---
+
+## 현재 배포 상태 (2026-09-10)
+
+| 항목 | 값 |
+|---|---|
+| Production URL | https://homepage-template-ivory.vercel.app |
+| 기본 브랜치 | `main` (머지 커밋 `014909e`) |
+| 함수 리전 | Seoul (`icn1`) — 대시보드 설정 |
+| Supabase 리전 | 서울 (`ap-northeast-2`) |
+| CI | GitHub Actions `typecheck · lint · build` |
+
+> ⚠️ `homepage-template.vercel.app`(팀 접미사 없는 짧은 주소)은 **다른 계정의 프로젝트**다.
+> 프로젝트 이름이 전역 선점되어 있다. 이 주소를 우리 사이트로 착각하지 말 것.

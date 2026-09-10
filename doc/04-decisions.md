@@ -215,3 +215,36 @@ Vercel 토큰이 없어 확인할 수 없었다.
     그 방향으로 좁히는 건 맞았지만, 환경 차이의 후보에 **환경변수의 빈 값 주입**을 넣지 못했다.
   - 소요 시간이 35~42초로 일정했던 것은 실제로 **빌드가 거의 끝난 뒤**(Compiled successfully →
     Collecting page data) 죽었기 때문이다. "빌드 후 단계 실패" 라는 재해석은 방향이 맞았다.
+
+---
+
+## ADR-013. 사이트 절대 URL 을 server-only 모듈로 분리하고 Vercel 도메인을 자동 사용
+
+- **맥락** 머지 후 Production(`homepage-template-ivory.vercel.app`)을 검증하니 라우트·보안은
+  전부 정상이었으나 **`sitemap.xml` 과 `robots.txt` 의 절대 URL 이 플레이스홀더
+  `https://www.example.co.kr`** 로 나갔다. `NEXT_PUBLIC_SITE_URL` 을 설정하지 않았기 때문이다.
+  ADR-012 의 수정은 빌드가 깨지는 것만 막았고, **조용히 틀린 SEO 데이터가 나가는 것**은
+  그대로였다.
+- **문제 2 (잠재)** URL 해석이 `content/site.ts` 에 있었는데, 이 모듈은 클라이언트 컴포넌트
+  (`components/site-header.tsx`)도 import 한다. `NEXT_PUBLIC_` 이 아닌 환경변수는 클라이언트
+  번들에서 사라지므로 **같은 `site.url` 이 서버에선 실주소, 클라이언트에선 플레이스홀더**가
+  된다. 지금은 클라이언트에서 렌더링하지 않아 드러나지 않지만, 누가 쓰는 순간 조용한
+  hydration 불일치가 된다.
+- **결정**
+  1. `lib/site-url.ts` 를 만들고 `import 'server-only'` 를 선언한다. `siteUrl` 을 여기서만
+     내보내고 `content/site.ts` 에서 `url` 을 제거한다. → 경계를 **빌드 타임에 강제**한다.
+     (`metadataBase`·`sitemap`·`robots` 는 모두 서버 전용이라 제약이 아니다.)
+  2. 해석 우선순위를 3단으로 둔다.
+     `NEXT_PUBLIC_SITE_URL` → `VERCEL_PROJECT_PRODUCTION_URL` → 플레이스홀더.
+  3. 스킴이 없으면 `https://` 를 붙인다.
+     [`VERCEL_PROJECT_PRODUCTION_URL` 은 스킴 없이 오고, 프리뷰 배포에도 항상 주입되며
+     OG·metadataBase 용도로 문서화되어 있다](https://vercel.com/docs/environment-variables/system-environment-variables).
+- **근거** 사람이 잊을 수 있는 설정은 **플랫폼이 이미 아는 값으로 자동 채우는 편이 낫다.**
+  1번 우선순위를 유지하므로 실도메인이 생기면 그것이 항상 이긴다. 플레이스홀더는 로컬
+  개발용으로만 남는다.
+- **대안** Vercel 대시보드에 `NEXT_PUBLIC_SITE_URL` 을 수동 입력 — 동작하지만 잊으면 다시
+  조용히 틀린다. `doc/05-content-guide.md` 체크리스트에만 의존하는 방식이 이미 한 번 실패했다.
+- **남는 위험** Vercel 이 아닌 호스팅에서는 2번이 없으므로 플레이스홀더로 떨어진다.
+  `isPlaceholderSiteUrl` 을 함께 내보내 향후 경고·헬스체크에 쓸 수 있게 했다.
+- **검증** 빌드 5조건(둘 다 미설정 / 빈 문자열 / 잘못된 형식 / VERCEL 변수만 / 빈 값+VERCEL)
+  모두 통과. Vercel 환경 모사 시 sitemap·robots 가 실제 도메인으로 출력.

@@ -6,35 +6,6 @@
  *    전자금융 관련 광고성 표현은 교체 시 준법감시(컴플라이언스) 검토 필수.
  */
 
-/** NEXT_PUBLIC_SITE_URL 미설정·오설정 시 사용할 기본값. */
-const FALLBACK_SITE_URL = 'https://www.example.co.kr'
-
-/**
- * 사이트 절대 URL 을 검증해 항상 유효한 값만 내보낸다.
- *
- * ⚠️ 빈 문자열을 반드시 걸러야 한다. `?? ` 는 null/undefined 만 폴백하므로
- *    NEXT_PUBLIC_SITE_URL="" 인 환경에서는 빈 문자열이 그대로 통과하고,
- *    app/layout.tsx 의 `new URL(site.url)` 이 TypeError: Invalid URL 을 던져
- *    **빌드가 깨진다**(Collecting page data 단계에서 /_not-found 실패).
- *
- *    로컬·CI 는 변수가 아예 없어서(undefined) 통과하지만 Vercel 은 빈 값을
- *    주입하므로, 이 차이가 "CI 통과 · Vercel 배포 실패" 로 나타났다.
- *    Vercel 배포 9회 연속 실패의 실제 원인이다. (ADR-012)
- */
-function resolveSiteUrl(raw: string | undefined): string {
-  const candidate = raw?.trim()
-  if (!candidate) return FALLBACK_SITE_URL
-
-  try {
-    const parsed = new URL(candidate)
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return FALLBACK_SITE_URL
-    // 끝 슬래시를 제거한다. sitemap 등에서 `${site.url}${path}` 로 이어붙일 때 '//' 방지.
-    return `${parsed.origin}${parsed.pathname.replace(/\/$/, '')}`
-  } catch {
-    return FALLBACK_SITE_URL
-  }
-}
-
 export const site = {
   name: '넥스트챈스',
   nameEn: 'NEXTCHANS',
@@ -42,7 +13,8 @@ export const site = {
   tagline: '결제 인프라의 처음부터 끝까지',
   description:
     '밴 단말기 공급, PG 영업대행, 전자금융업 등록, 금융 클라우드 이용등록, 금융결제원 오픈뱅킹 연동까지. 결제 사업에 필요한 모든 절차를 한 팀이 끝냅니다.',
-  url: resolveSiteUrl(process.env.NEXT_PUBLIC_SITE_URL),
+  // 절대 URL 은 여기 두지 않는다 — 이 모듈은 클라이언트 컴포넌트도 import 한다.
+  //   → lib/site-url.ts (server-only) 의 `siteUrl` 을 쓴다.
   locale: 'ko_KR',
 } as const
 

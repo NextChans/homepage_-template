@@ -274,6 +274,34 @@ sitemap 의 URL 에 `//` 없음. typecheck·lint 통과.
 급할 때의 임시 방편은 Ready 배포를 Promote to Production 하는 것이지만, `main` 이 비어 있는
 상태는 그대로라 다음 `main` 푸시에서 다시 실패한다.
 
+### 머지 후 Production 검증 (2026-09-10)
+
+PR #1 을 `main` 에 머지(`014909e`, merge commit). `main` 파일 수 0 → 59.
+Production 주소는 **https://homepage-template-ivory.vercel.app** 이다.
+
+> ⚠️ `homepage-template.vercel.app` 은 **다른 계정의 프로젝트**(제목 `DIGITLEX`)다.
+> 프로젝트 이름이 전역 선점되어 있어 짧은 도메인을 받지 못했다. 상태 코드 200 만 보고
+> 성공으로 판단했다가 내용 확인에서 틀린 것을 발견했다 — **응답 코드가 아니라 내용을
+> 확인해야 한다.**
+
+**검증 결과 (읽기 전용)**
+
+| 항목 | 결과 |
+|---|---|
+| 제목 | `넥스트챈스 — 결제 인프라의 처음부터 끝까지` |
+| 라우트 12개 (`/` · 서비스 5 · about · contact · privacy · sitemap · robots) | 전부 200 |
+| 없는 경로 | 404 |
+| 개발용 안내 배너 | 미노출 (ADR-010 동작 확인) |
+| **비밀값 유출 스캔** | JS/CSS 13개 자산 + 페이지 HTML 800KB 전수 검사 — `sb_secret_` · `service_role` · `SUPABASE_SECRET_KEY` · `INQUIRY_IP_HASH_SALT` · JWT 서명 패턴 **모두 0건**. `supabase.co` 조차 클라이언트에 없다(서버에서만 사용) |
+
+**발견한 문제**: `sitemap.xml` · `robots.txt` 의 절대 URL 이 플레이스홀더
+`https://www.example.co.kr` 로 나갔다. ADR-012 는 빌드 깨짐만 막았고 **조용히 틀린 SEO
+데이터**는 그대로였다. → ADR-013 으로 `lib/site-url.ts`(server-only) 분리 +
+`VERCEL_PROJECT_PRODUCTION_URL` 자동 사용으로 해결.
+
+**폼 제출(D-2·D-3·D-5)은 사용자가 직접 완료**했다. 프로덕션 DB 에 쓰는 동작이라 내가
+임의로 실행하지 않았다.
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)
