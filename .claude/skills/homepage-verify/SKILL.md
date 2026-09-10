@@ -100,6 +100,58 @@ export SUPABASE_SECRET_KEY="sb_secret_local_refused"
 export NO_PROXY="127.0.0.1,localhost"
 ```
 
+### 함정 7 — Vercel **Preview URL 로는 자산을 검증할 수 없다**
+
+이 프로젝트의 Preview 배포는 **Vercel Authentication** 으로 보호되어 있다. 인증 없이
+요청하면 **모든 경로가 200 으로 로그인 페이지 HTML** 을 돌려준다.
+
+```
+/icon.svg            200  text/html; charset=utf-8  338994bytes   ← 로그인 페이지다
+/opengraph-image.png 200  text/html; charset=utf-8  339072bytes
+```
+
+**`200` 을 보고 "자산이 서빙된다" 고 판단하면 틀린다.** 구분법 두 가지 —
+
+1. **`content_type` 을 본다.** `.png` 요청에 `text/html` 이 오면 로그인 페이지다.
+   `curl -o /dev/null -w '%{http_code} %{content_type}'` 로 항상 함께 확인한다.
+2. `head` 에 `assets.vercel.com/.../favicon/vercel/` 아이콘이 보이면 **우리 페이지가
+   아니라 Vercel 페이지**다.
+
+→ 자산 검증은 **로컬 `next start`** 로 한다(2절). 배포본 확인이 필요하면 **프로덕션
+도메인**을 쓴다 — 그쪽은 보호되지 않는다.
+
+### 함정 8 — `grep -c` 는 **줄 수**를 센다. 렌더된 HTML 은 한 줄이다
+
+`grep -c 'viewBox'` 는 심볼이 2개여도 **1** 을 돌려준다. 출현 횟수를 세려면
+`grep -o ... | wc -l` 을 쓴다.
+
+```bash
+# ✗ 항상 1 이다
+curl -s localhost:3100/ | grep -c 'viewBox="0 0 28 33"'
+# ✓ 실제 출현 횟수
+curl -s localhost:3100/ | grep -o 'viewBox="0 0 28 33"' | wc -l
+```
+
+### 함정 9 — `pkill -f <패턴>` 이 **자기 명령줄을 죽인다**
+
+`pkill -9 -f next-server` 는 그 문자열을 포함한 **자기 셸 명령줄에도 매칭**되어 셸이
+즉시 죽는다(도구는 exit 1 만 보여주고 로그 파일도 안 생긴다). 패턴을 어긋나게 쓴다.
+
+```bash
+for p in $(ps -eo pid,args | grep '[n]ext-serv' | awk '{print $1}'); do kill -9 "$p"; done
+```
+
+### 함정 10 — Analytics 스크립트는 **서버 HTML 에 없다**
+
+`<Analytics />` 는 클라이언트에서 `<script>` 를 주입한다. 서버 HTML 을 grep 해서
+`_vercel/insights` 가 없다고 "배선이 안 됐다" 고 판단하면 틀린다. 번들을 본다.
+
+```bash
+grep -rl '_vercel/insights' .next/static/chunks/    # layout 청크에 있으면 배선됨
+```
+
+**실제 수집 여부는 Vercel 대시보드에 데이터가 들어오는지로만 확인된다.**
+
 ## 3. 눈으로 볼 체크리스트
 
 - [ ] 히어로: 하위 페이지 헤드라인이 3줄 이상으로 깨지지 않는다 (`size="headline"` 확인)
@@ -109,6 +161,10 @@ export NO_PROXY="127.0.0.1,localhost"
 - [ ] `accent` 색이 링크·버튼·포커스·에러 외에 쓰이지 않았다
 - [ ] 카드 그리드에서 마지막 행에 어색한 빈칸이 생기지 않는다
 - [ ] 푸터의 템플릿 고지 문구가 남아 있다 (실데이터 교체 전까지)
+- [ ] 헤더·푸터 심볼이 **사선 2개가 뚫린 방패**로 보인다 (통짜 방패면 `evenodd` 가 빠졌다)
+- [ ] 다크 모드에서 심볼이 흰색으로 반전된다 (`currentColor` 확인)
+- [ ] 브라우저 탭 파비콘이 네이비 사각형 + 골드 방패다
+- [ ] 화면 어디에도 골드(`#C9A961`)가 텍스트·링크·버튼으로 쓰이지 않았다 (대비 2.25:1)
 
 ## 4. 폼 동작 확인 (Supabase 설정 시)
 
