@@ -573,11 +573,12 @@ storedHashShape: 'ok'`. 아이디는 해결, 비밀번호만 남았고 해시 �
 - 임시로 세션을 `mustChangePassword: true` 로 패치해 DB 계정 첫 로그인 화면을 렌더하고
   라이트·다크·모바일을 확인한 뒤 **원복**했다(`git diff --exit-code` 로 확인).
 
-**2) 회사 정보 확정** — 사용자 확정: 상호 `Work In Trust`(약칭 `Wit`), 대표자 `최봉균`.
+**2) 회사 정보 확정** — 사용자 확정: 상호 `Work In Trust`, 약어 표기 `W.I.T`
+(이니셜 사이에 마침표), 대표자 `최봉균`.
 
 | 필드 | 값 |
 |---|---|
-| `site.name` | `Wit` (화면 전반·`<title>` 템플릿) |
+| `site.name` | `W.I.T` (화면 전반·`<title>` 템플릿) |
 | `site.nameEn` | `WORK IN TRUST` |
 | `company.ceo` | `최봉균` |
 | `site.legalName` | `Work In Trust` — **임의로 '주식회사' 를 붙이지 않았다** |
@@ -586,7 +587,7 @@ storedHashShape: 'ok'`. 아이디는 해결, 비밀번호만 남았고 해시 �
 포함한 정식 법인명은 사업자등록증을 확인해야 하므로 추측하지 않고 TODO 로 남겼다.
 `homepage-section` 스킬의 `<title>` 템플릿 예시도 함께 갱신.
 
-**검증**: typecheck·lint·build 통과. 브라우저 13개 항목 — 헤더 `Wit`, `WORK IN TRUST`,
+**검증**: typecheck·lint·build 통과. 브라우저 13개 항목 — 헤더 `W.I.T`, `WORK IN TRUST`,
 푸터 대표 `최봉균`, `<title>` 반영, **이전 임시값(넥스트챈스·홍길동) 잔여 없음**
 (홈·서비스·회사소개·문의·키오스크 5개 경로).
 
