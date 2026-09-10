@@ -15,6 +15,7 @@
 | [07-handoff.md](./07-handoff.md) | **다른 환경에서 이어가기** |
 | [08-worklog.md](./08-worklog.md) | 작업 기록 |
 | [09-deployment.md](./09-deployment.md) | **Supabase + Vercel 연동 절차** (비밀키를 채팅에 노출하지 않는 경로) |
+| [10-admin.md](./10-admin.md) | **관리자 페이지 운영** — 활성화 절차, 사고 대응, 감사 로그 조회 |
 
 ## 문서 작성 규칙
 

@@ -15,6 +15,10 @@ app/actions/inquiry.ts        (Server)  봇 차단 → zod 검증 → 레이트�
 lib/supabase/server.ts        (Server)  service_role 클라이언트 ('server-only')
         ↓
 supabase/migrations/*.sql               public.inquiries (RLS on, 정책 없음)
+        ↑ service_role (읽기 전용)
+lib/admin/inquiries.ts        (Server)  목록·상세 조회 (목록은 이메일·연락처 마스킹)
+        ↑
+app/admin/**                  (Server)  requireAdminSession() 가드 + admin_audit_log 기록
 ```
 
 검증 스키마는 `lib/inquiry-schema.ts` 한 곳에만 있다. 클라이언트와 서버가 같은 스키마를 쓴다.
@@ -25,8 +29,13 @@ supabase/migrations/*.sql               public.inquiries (RLS on, 정책 없음)
    번들에 포함되어 RLS 가 완전히 무력화된다.
 2. `lib/supabase/server.ts` 는 `'server-only'` 를 선언한다. 클라이언트 컴포넌트에서 import 금지.
 3. `public.inquiries` 는 **RLS 를 켜고 정책을 만들지 않는다.** anon/authenticated 는 접근 불가.
-   조회가 필요하면 Supabase 대시보드나 별도 사내 도구(서버 권한)에서 한다.
+   조회는 `/admin` (서버에서 service_role) 또는 Supabase 대시보드에서만 한다.
    → 공개 페이지에서 문의 목록을 읽는 기능은 만들지 않는다.
+   → **Supabase Auth 를 도입해 `authenticated` 롤에 정책을 열지 않는다.** 그 순간
+     브라우저에서 도달 가능한 읽기 경로가 생긴다 (ADR-015). 관리자 인증은
+     `lib/admin/auth.ts` 가 자체 처리하고 데이터 접근은 계속 서버에서만 한다.
+7. `public.admin_audit_log` 도 같다 — RLS on, 정책 0개, service_role 전용.
+   **비밀번호를 어떤 형태로도(해시 포함) 이 테이블에 넣지 않는다.**
 4. **원문 IP 를 저장하지 않는다.** `INQUIRY_IP_HASH_SALT` + SHA-256 해시만 남긴다.
    salt 가 없으면 해시도 남기지 않는다(salt 없는 IP 해시는 사실상 재식별 가능).
 5. **민감정보 컬럼을 추가하지 않는다.** 주민등록번호, 계좌번호, 카드번호, 여권번호는
@@ -109,4 +118,23 @@ CLI 를 쓸 수 없으면 Supabase 대시보드 → SQL Editor 에 파일 내용
 - 보관기간 경과 데이터 자동 삭제 — `pg_cron` 잡 (SQL 은 마이그레이션 하단 주석 참고)
 - 접수 알림 — Slack/이메일 웹훅 (Supabase Database Webhooks 또는 Server Action 내 발송)
 - 레이트리밋 강화 — 현재는 `ip_hash` 기준 10분 3건. 대량 유입 시 Upstash 등 외부 저장소 검토
-- 관리자 조회 화면 — 만들 경우 반드시 인증 + 감사 로그를 함께 설계한다
+- ~~관리자 조회 화면~~ — `/admin` 구현 완료. 운영 절차는 `doc/10-admin.md`
+- `admin_audit_log` 보관기간 정책 + 정리 잡 (마이그레이션 하단 주석 참고)
+
+## 7. 관리자 화면(`/admin`)을 건드릴 때
+
+운영 절차는 `doc/10-admin.md`, 설계 근거는 `doc/04-decisions.md` ADR-015. **읽기 전용이다.**
+
+| 하려는 것 | 주의 |
+|---|---|
+| 조회 컬럼 추가 | `lib/admin/inquiries.ts` 의 `select()` 와 `InquiryListItem`/`InquiryDetail` 타입. **개인정보 항목이면 목록에는 마스킹해서 넣는다** |
+| 새 감사 액션 추가 | `AdminAction` 타입 **과** 마이그레이션의 `check (action in (...))` 제약을 **함께** 고친다. 한쪽만 고치면 insert 가 조용히 실패하고 감사 로그가 비어 있게 된다 |
+| 새 관리자 페이지 추가 | `requireAdminSession()` 을 **그 페이지에서 직접** 호출한다(레이아웃 가드는 접근 제어가 아니다). `export const dynamic = 'force-dynamic'` 도 반드시 붙인다 — 빠지면 빌드 시점 `notFound()` 가 굳어 영구 404 가 된다 |
+| 쓰기 기능(상태 변경 등) 추가 | CSRF·변경 이력·권한을 함께 설계한다. 현재 읽기 전용인 것은 의도적 선택 |
+| CSV·엑셀 내보내기 | 만들지 않았다. 요구가 생기면 **반출 기록을 감사 로그에 남기는 설계를 먼저** 한다 |
+
+**절대 하지 않을 것**
+- `lib/admin/*` 를 클라이언트 컴포넌트에서 import (`'server-only'` 로 막혀 있다)
+- `ADMIN_*` 환경변수에 `NEXT_PUBLIC_` 접두어
+- 로그인 에러 메시지에서 아이디 오류와 비밀번호 오류를 구분
+- 감사 로그 기록을 조건부로 건너뛰기 — 조회했으면 반드시 남긴다
