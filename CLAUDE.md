@@ -50,5 +50,14 @@
 3. **중요한 판단은 `doc/04-decisions.md` 에, 진행 내역은 `doc/08-worklog.md` 에 기록한다.**
    나중에 몰아 쓰지 않는다.
 4. **반복될 작업이라면 문서가 아니라 스킬로 만든다** (`.claude/skills/`).
-5. 브랜치 `claude/apple-style-homepage-iv3pxl` 에 커밋·푸시한다.
+5. 브랜치 `claude/apple-style-homepage-iv3pxl` 에 커밋·푸시하고 **draft PR** 을 연다.
    컨테이너는 세션 종료 후 회수되므로 커밋하지 않은 것은 사라진다.
+6. **CI(typecheck·lint·build)가 통과하면 확인을 받지 않고 바로 `main` 에 머지한다.**
+   (사용자 지시, 2026-09-10: "CI 통과했으면 머지 항상 해 그냥")
+   - draft 를 해제하고 **merge commit** 으로 머지한다. 머지 커밋 본문에 판단 요약을 남긴다.
+   - 머지 후 작업 브랜치를 `origin/main` 기준으로 다시 만든다
+     (`git fetch origin main && git checkout -B <branch> origin/main`).
+     **이미 머지된 PR 에 새 커밋을 쌓지 않는다.**
+   - CI 가 **실패하면 머지하지 않는다.** 원인을 규명해 고치고 다시 푸시한다.
+   - **DB 마이그레이션이 포함된 머지는 사용자에게 알린다** — Supabase SQL Editor
+     실행은 사람이 해야 반영된다.
