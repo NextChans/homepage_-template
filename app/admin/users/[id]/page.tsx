@@ -22,7 +22,10 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic'
 
-type PageProps = { params: Promise<{ id: string }> }
+type PageProps = {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ created?: string }>
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -46,9 +49,10 @@ function Section({ title, lead, children }: { title: string; lead?: string; chil
   )
 }
 
-export default async function AdminUserDetailPage({ params }: PageProps) {
+export default async function AdminUserDetailPage({ params, searchParams }: PageProps) {
   const session = await requirePermission('user.manage')
   const { id } = await params
+  const { created } = await searchParams
   if (!UUID_RE.test(id)) notFound()
 
   const user = await getAdminUser(id)
@@ -72,6 +76,40 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
           {ROLE_LABEL[user.role]}
         </span>
       </div>
+
+      {created === '1' ? (
+        <div className="mt-4 max-w-2xl rounded-squircle-lg border border-hairline bg-surface p-6">
+          <p className="text-[13px] font-medium text-ink">계정을 만들었습니다 — 담당자에게 전달할 내용</p>
+          <ul className="mt-3 space-y-2 text-[14px] text-ink-muted">
+            <li className="flex gap-2.5">
+              <span aria-hidden>—</span>
+              <span>
+                로그인 주소와 아이디 <b className="font-medium text-ink">{user.username}</b>
+              </span>
+            </li>
+            <li className="flex gap-2.5">
+              <span aria-hidden>—</span>
+              <span>
+                방금 정한 <b className="font-medium text-ink">초기 비밀번호</b>.
+                메신저·메일보다 안전한 경로로 전달하고,{' '}
+                <b className="font-medium text-ink">전달 후 그 메시지를 삭제</b>하도록 안내하세요
+              </span>
+            </li>
+            <li className="flex gap-2.5">
+              <span aria-hidden>—</span>
+              <span>
+                <b className="font-medium text-ink">첫 로그인에서 비밀번호를 반드시 변경</b>해야
+                하며, 변경 전에는 다른 화면을 쓸 수 없다는 점 (화면에서도 안내됩니다)
+              </span>
+            </li>
+          </ul>
+          <p className="mt-4 border-t border-hairline pt-4 text-[13px] text-ink-muted">
+            초기 비밀번호는 <b className="font-medium text-ink">여기서 다시 확인할 수 없습니다</b> —
+            해시만 저장하기 때문입니다. 잊었으면 아래 <b className="font-medium text-ink">비밀번호
+            초기화</b>로 새로 정하세요.
+          </p>
+        </div>
+      ) : null}
 
       {isSelf ? (
         <p className="mt-3 max-w-2xl rounded-2xl border border-hairline bg-surface px-5 py-3 text-[13px] text-ink-muted">
