@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 같은 브랜치의 이전 실행은 취소한다 (푸시를 연달아 할 때 러너 낭비 방지)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# 최소 권한. 이 워크플로는 코드를 읽기만 한다.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: typecheck · lint · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # Playwright 는 스크린샷 검증용 devDependency 다. CI 에서 브라우저를 내려받을 필요가 없다.
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      # 빌드는 Supabase 환경변수 없이도 통과해야 한다(lib/supabase/server.ts 가 null 을 반환).
+      # 따라서 이 워크플로에는 어떤 비밀값도 필요하지 않다.
+      NEXT_TELEMETRY_DISABLED: '1'
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 타입 검사
+        run: npm run typecheck
+
+      - name: 린트
+        run: npm run lint
+
+      - name: 프로덕션 빌드
+        run: npm run build
