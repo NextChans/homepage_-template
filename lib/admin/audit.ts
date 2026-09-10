@@ -80,18 +80,32 @@ export async function logAdminAction(input: {
 }
 
 /**
- * 최근 로그인 실패 횟수. 임계값을 넘으면 로그인을 잠근다.
+ * 로그인 시도를 막아야 하는가. 막아야 하면 **이유**를 함께 돌려준다.
  *
- * ⚠️ `inquiries` 의 레이트리밋과 같은 한계를 갖는다 — DB 카운트 기반이라
- *    동시 요청에서 원자적이지 않다. 다만 브루트포스는 반복 시도가 전제이므로
- *    억제 효과는 충분하다. 조회 실패 시에는 **잠그는 쪽(fail-closed)** 으로
- *    기울인다. 문의 접수는 가용성이 우선이었지만, 여기는 개인정보 접근이다.
+ * ⚠️ `unavailable` 을 따로 두는 이유 — 감사 로그를 조회할 수 없으면 잠그는 쪽으로
+ *    기울인다(fail-closed). 그런데 이때 "시도가 너무 많습니다" 라고 표시하면
+ *    **설정 실수를 브루트포스로 오인하게 만든다.** 실제로 이 메시지 때문에
+ *    원인을 찾는 데 시간을 썼다. 두 상태를 구분해 운영자가 바로 알 수 있게 한다.
+ *
+ * ⚠️ `inquiries` 의 레이트리밋과 같은 한계를 갖는다 — DB 카운트 기반이라 동시
+ *    요청에서 원자적이지 않다. 다만 브루트포스는 반복 시도가 전제이므로 억제
+ *    효과는 충분하다. 조회 실패 시 판단을 뒤집는 것(문의 접수는 가용성 우선,
+ *    여기는 개인정보 접근이라 차단 우선)이 이 함수의 핵심이다.
+ *
+ * ⚠️ `ipHash` 가 없으면(= `INQUIRY_IP_HASH_SALT` 미설정) **잠금이 동작하지 않는다.**
+ *    salt 없는 IP 해시는 사실상 재식별 가능해서 만들지 않기 때문이다.
+ *    관리자 페이지를 켤 때 salt 설정을 함께 확인해야 한다.
  */
-export async function isLoginLocked(context: AuditContext): Promise<boolean> {
-  if (!context.ipHash) return false
+export type LoginGate = 'ok' | 'locked' | 'unavailable'
+
+export async function loginGate(context: AuditContext): Promise<LoginGate> {
+  if (!context.ipHash) return 'ok'
 
   const supabase = getServiceClient()
-  if (!supabase) return true // 미설정이면 어차피 로그인도 불가
+  if (!supabase) {
+    console.error('[admin] 로그인 차단 — Supabase 미설정으로 실패 횟수를 확인할 수 없음')
+    return 'unavailable'
+  }
 
   const since = new Date(Date.now() - LOGIN_LOCK_WINDOW_MINUTES * 60_000).toISOString()
   const { count, error } = await supabase
@@ -102,9 +116,14 @@ export async function isLoginLocked(context: AuditContext): Promise<boolean> {
     .gte('created_at', since)
 
   if (error) {
-    console.error('[admin] 로그인 실패 카운트 조회 실패', { message: error.message })
-    return true // fail-closed
+    // 테이블이 없는 경우(마이그레이션 미실행)도 여기로 온다. 자주 겪는 실수라
+    // 코드를 함께 남겨 로그만 보고 판별할 수 있게 한다.
+    console.error('[admin] 로그인 차단 — 실패 횟수 조회 실패', {
+      code: error.code,
+      message: error.message,
+    })
+    return 'unavailable'
   }
 
-  return (count ?? 0) >= LOGIN_LOCK_MAX_FAILURES
+  return (count ?? 0) >= LOGIN_LOCK_MAX_FAILURES ? 'locked' : 'ok'
 }
