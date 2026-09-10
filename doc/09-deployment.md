@@ -226,11 +226,17 @@ Config 는 저장 후에도 값을 다시 볼 수 있고, Secret 은 write-only 
 
    | 타입 | 호스트 | 값/위치 | TTL |
    |---|---|---|---|
-   | `A` | `@` | Vercel 이 표시하는 IP | 600 |
-   | `CNAME` | `www` | Vercel 이 표시하는 `*.vercel-dns.com` | 600 |
+   | `A` | `@` | `216.198.79.1` | 600 |
+   | `CNAME` | `www` | `0615e4f09ccc9ef3.vercel-dns-017.com.` | 600 |
+
+   위 값은 **2026-09-10 에 Vercel 대시보드(`View DNS configuration`)가 표시한 실제
+   값**이다. 변경될 수 있으므로 작업 시 대시보드와 대조한다.
 
    - apex 는 **`@`** 로 쓴다.
-   - **CNAME 값 끝에 점(`.`)** 을 요구할 수 있다. 저장이 거부되면 붙여 본다.
+   - ⚠️ **CNAME 값은 이 프로젝트 전용 주소다.** 일반 주소(`cname.vercel-dns.com`)가
+     아니다. Vercel 안내에 "legacy `cname.vercel-dns.com` / `76.76.21.21` 도 계속
+     동작한다" 고 나오지만, **화면이 권장하는 값을 쓴다.**
+   - **끝의 점(`.`)까지 그대로** 넣는다 — 가비아가 요구한다.
    - TTL 은 낮게(600) 둔다 — 문제 시 되돌리기가 빠르다.
 3. 저장 후 Vercel 에서 **`Refresh`** → `Valid Configuration` 확인
 
