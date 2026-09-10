@@ -55,9 +55,16 @@
 6. **CI(typecheck·lint·build)가 통과하면 확인을 받지 않고 바로 `main` 에 머지한다.**
    (사용자 지시, 2026-09-10: "CI 통과했으면 머지 항상 해 그냥")
    - draft 를 해제하고 **merge commit** 으로 머지한다. 머지 커밋 본문에 판단 요약을 남긴다.
-   - 머지 후 작업 브랜치를 `origin/main` 기준으로 다시 만든다
+   - 머지 후 작업 브랜치를 `origin/main` 기준으로 **로컬에서만** 다시 만든다
      (`git fetch origin main && git checkout -B <branch> origin/main`).
      **이미 머지된 PR 에 새 커밋을 쌓지 않는다.**
+   - ⚠️ **이때 브랜치를 push 하지 않는다.** 작업 브랜치를 `main` 과 같은 커밋으로
+     force-push 하면 Vercel 이 **같은 SHA 를 Preview 로 먼저 잡아** Production 배포가
+     생성되지 않는다(같은 커밋을 두 번 빌드하지 않는다). 실제로 PR #10 이 이 때문에
+     프로덕션에 반영되지 않았다. push 는 **새 커밋이 생겼을 때** 한다.
+   - 머지 후에는 **프로덕션 화면에서 변경이 반영됐는지 확인한다.** CI 통과와 배포는
+     별개다. 반영이 안 됐으면 Vercel Deployments 에서 해당 배포가 `Preview` 로
+     잡혔는지 보고, 그렇다면 **Promote to Production** 하거나 새 커밋을 올린다.
    - CI 가 **실패하면 머지하지 않는다.** 원인을 규명해 고치고 다시 푸시한다.
    - **DB 마이그레이션이 포함된 머지는 사용자에게 알린다** — Supabase SQL Editor
      실행은 사람이 해야 반영된다.
