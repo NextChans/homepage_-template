@@ -52,8 +52,14 @@ Supabase → SQL Editor → `supabase/migrations/20260910000002_admin_audit_log.
 로컬에서 (명령 앞에 **공백 한 칸**을 넣어 셸 히스토리에 남지 않게 한다):
 
 ```bash
- node scripts/hash-admin-password.mjs '12자-이상-실제-비밀번호'
+node scripts/hash-admin-password.mjs
 ```
+
+**인자로 비밀번호를 넘기지 않는다** — `ps` 로 보이고 셸 히스토리에 남는다.
+실행하면 숨김 입력으로 **두 번** 물어보고, 일치할 때만 해시를 만든다.
+
+> ⚠️ 두 번 묻는 이유: 한 번만 묻는 방식으로는 숨겨진 입력의 오타를 알 수 없고,
+> 배포 후 "아이디 또는 비밀번호가 올바르지 않습니다" 로만 드러난다. 실제로 겪었다.
 
 `ADMIN_PASSWORD_HASH` 와 `ADMIN_SESSION_SECRET` 두 값이 출력된다.
 비밀번호 원문은 **어디에도 저장하지 않는다** (비밀번호 관리자에만 보관).
@@ -109,7 +115,8 @@ Vercel → 프로젝트 → Settings → Environment Variables. **타입은 넷 
 | 필요 | 현재 | 대응 |
 |---|---|---|
 | 문의 상태 변경 (`status`) | 없음 (읽기 전용) | Supabase 대시보드에서 직접 수정 |
-| 비밀번호 변경 | UI 없음 | 2-2 재실행 → `ADMIN_PASSWORD_HASH` 교체 → 재배포 |
+| 비밀번호 변경 | UI 없음 | 2-2 재실행 → `ADMIN_PASSWORD_HASH` 교체 → **Redeploy** |
+| 로그인 실패 원인 확인 | 화면은 구분 안 함 | Vercel Runtime Logs 의 `[admin]` 로그 + `--verify` (아래) |
 | 원격 강제 로그아웃 | 없음 (서명 쿠키라 서버 상태가 없다) | **`ADMIN_SESSION_SECRET` 교체 → 전체 세션 즉시 무효화** |
 | 운영자별 계정·권한 | 없음 (공유 자격증명 1개) | 인원이 늘면 Supabase Auth + MFA 로 이전 (ADR-015) |
 | MFA | 없음 | 동일 |
@@ -145,6 +152,36 @@ from public.admin_audit_log
 where action = 'record_viewed' and target_id = '<inquiry-id>'
 order by created_at desc;
 ```
+
+### 로그인이 안 될 때 (원인 진단)
+
+화면 메시지는 **아이디·비밀번호 중 무엇이 틀렸는지 구분하지 않는다**(사용자명 존재 여부
+은닉). 대신 **Vercel 런타임 로그**에 원인이 남는다.
+
+Vercel → 프로젝트 → **Logs** (또는 해당 배포 → Runtime Logs) 에서 `[admin]` 검색:
+
+| 로그 | 의미 | 조치 |
+|---|---|---|
+| `로그인 실패 { usernameMatched: false, passwordMatched: true }` | **`ADMIN_USERNAME` 값이 다르다** | Vercel 에서 해당 변수를 삭제하고 **직접 타이핑해** 재등록 → Redeploy |
+| `로그인 실패 { usernameMatched: true, passwordMatched: false }` | **비밀번호/해시가 다르다** | 해시 생성 시 오타. 아래 `--verify` 로 확인 후 재생성 |
+| `storedHashShape: '✗ hash 바이트 …'` | **해시 값이 잘렸다** | 붙여넣기 사고. `scrypt$` 부터 끝까지 전체 재등록 |
+| `로그인 차단 — Supabase 미설정…` | 실패 횟수를 조회할 수 없어 fail-closed | Supabase 환경변수 확인 |
+| `로그인 차단 — 실패 횟수 조회 실패 { code: '42P01' }` | **`admin_audit_log` 테이블이 없다** | 2-1 마이그레이션 실행 |
+
+**환경변수 값의 앞뒤 공백·줄바꿈은 서버가 `trim()` 한다.** 값 중간에 줄바꿈이 들어간
+경우만 문제가 되며, 그때는 `storedHashShape` 에 드러난다.
+
+배포하지 않고 로컬에서 비밀번호가 해시와 맞는지 확인할 수 있다:
+
+```bash
+node scripts/hash-admin-password.mjs --verify 'scrypt$...$...'
+```
+
+`✓ 형식 정상` + `✗ 틀립니다` → 해시 생성 시 오타다. 인자 없이 다시 실행해 새로 만든다
+(비밀번호를 **두 번** 물어보고 자기검증까지 한다).
+
+> ⚠️ `ADMIN_USERNAME` 을 Secret 으로 저장하면 **대시보드에서 값을 다시 볼 수 없다.**
+> 아이디 불일치가 의심되면 확인하려 하지 말고 **삭제 후 재등록**한다.
 
 ### 로그인이 잠겼을 때
 

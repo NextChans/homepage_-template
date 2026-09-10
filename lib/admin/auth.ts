@@ -36,11 +36,23 @@ const SCRYPT_COST = { N: 16384, r: 8, p: 1 }
  * 경로가 없다.
  */
 export function isAdminConfigured(): boolean {
-  return Boolean(
-    process.env.ADMIN_USERNAME &&
-      process.env.ADMIN_PASSWORD_HASH &&
-      process.env.ADMIN_SESSION_SECRET,
-  )
+  return Boolean(adminEnv('ADMIN_USERNAME') && adminEnv('ADMIN_PASSWORD_HASH') && adminEnv('ADMIN_SESSION_SECRET'))
+}
+
+/**
+ * 관리자 설정용 환경변수를 읽는다. **반드시 이 함수로만 읽는다.**
+ *
+ * ⚠️ `trim()` 하는 이유 — 실제로 겪은 실패다. 대시보드에 값을 붙여넣을 때
+ *    앞뒤 공백이나 줄바꿈이 섞이면 비교가 조용히 실패하고, 화면에는
+ *    "아이디 또는 비밀번호가 올바르지 않습니다" 만 나와 원인을 알 수 없다.
+ *    이 값들은 **사용자 입력이 아니라 우리가 넣은 설정값**이므로 공백을
+ *    의미 있는 문자로 취급할 이유가 없다.
+ *
+ *    반대로 **폼으로 들어온 비밀번호는 절대 trim 하지 않는다** — 그것은
+ *    사용자가 정한 값이고, 공백도 비밀번호의 일부다.
+ */
+function adminEnv(key: 'ADMIN_USERNAME' | 'ADMIN_PASSWORD_HASH' | 'ADMIN_SESSION_SECRET'): string {
+  return (process.env[key] ?? '').trim()
 }
 
 /** 길이가 달라도 조기 반환하지 않는 비교. 타이밍으로 정보가 새지 않게 한다. */
@@ -130,7 +142,11 @@ function readToken(token: string, secret: string): SessionPayload | null {
     if (typeof parsed.u !== 'string' || typeof parsed.exp !== 'number') return null
     if (Date.now() >= parsed.exp) return null
     // 자격증명 사용자명이 바뀌면 기존 세션은 무효가 된다.
-    if (!process.env.ADMIN_USERNAME || parsed.u !== process.env.ADMIN_USERNAME) return null
+    // ⚠️ 여기도 adminEnv 로 읽어야 한다. startSession 이 정규화된 값을 넣으므로
+    //    한쪽만 trim 하면 발급 직후 세션이 무효가 되어 **로그인 → 리다이렉트 무한
+    //    루프**가 된다.
+    const expectedUser = adminEnv('ADMIN_USERNAME')
+    if (!expectedUser || parsed.u !== expectedUser) return null
     return parsed
   } catch {
     return null
@@ -147,20 +163,64 @@ function readToken(token: string, secret: string): SessionPayload | null {
  * 사용자명 존재를 추측할 수 있기 때문이다.
  */
 export function checkCredentials(username: string, password: string): boolean {
-  const expectedUser = process.env.ADMIN_USERNAME
-  const storedHash = process.env.ADMIN_PASSWORD_HASH
+  const expectedUser = adminEnv('ADMIN_USERNAME')
+  const storedHash = adminEnv('ADMIN_PASSWORD_HASH')
   if (!expectedUser || !storedHash) return false
 
-  const userOk = safeEqual(username, expectedUser)
+  // 아이디가 틀려도 비밀번호 검증을 **항상** 수행한다.
+  // 건너뛰면 응답 시간 차이로 아이디 존재 여부가 드러난다.
+  const userOk = safeEqual(username.trim(), expectedUser)
   const passOk = verifyPassword(password, storedHash)
+
+  // 화면에는 어느 쪽이 틀렸는지 알려주지 않지만(사용자명 존재 여부 은닉),
+  // **서버 로그에는 남긴다.** 그렇지 않으면 설정 실수와 침입 시도가
+  // 똑같이 보여서 운영자가 원인을 찾을 수 없다. 비밀값은 출력하지 않는다.
+  if (!userOk || !passOk) {
+    console.error('[admin] 로그인 실패', {
+      usernameMatched: userOk,
+      passwordMatched: passOk,
+      storedHashShape: describeHashShape(storedHash),
+    })
+  }
+
   return userOk && passOk
+}
+
+/**
+ * 저장된 해시의 **형태만** 설명한다. 값은 절대 출력하지 않는다.
+ *
+ * 붙여넣기 사고(값 잘림, 줄바꿈 삽입)를 로그만 보고 판별할 수 있게 한다.
+ * `ok` 가 아니면 비밀번호가 맞아도 로그인은 실패한다.
+ */
+function describeHashShape(stored: string): string {
+  const parts = stored.split('$')
+  if (parts.length !== 3) return `잘못된 필드수(${parts.length}, 3이어야 함)`
+  if (parts[0] !== 'scrypt') return `알 수 없는 접두어`
+  const saltHex = parts[1] ?? ''
+  const hashHex = parts[2] ?? ''
+  const hashBytes = Buffer.from(hashHex, 'hex').length
+  if (saltHex.length !== 64) return `salt hex 길이 ${saltHex.length} (64여야 함)`
+  if (hashBytes !== SCRYPT_KEYLEN) {
+    return `hash 바이트 ${hashBytes} (${SCRYPT_KEYLEN}여야 함 — 값이 잘렸을 수 있음)`
+  }
+  return 'ok'
 }
 
 // ── 쿠키 ────────────────────────────────────────────────────────────────────
 
-export async function startSession(username: string): Promise<void> {
-  const secret = process.env.ADMIN_SESSION_SECRET
+/**
+ * 세션을 발급한다.
+ *
+ * ⚠️ **폼으로 들어온 문자열이 아니라 설정값(`ADMIN_USERNAME`)을 토큰에 담는다.**
+ *    유효한 사용자는 하나뿐이고, 사용자가 앞뒤 공백을 붙여 입력했더라도
+ *    토큰에는 정규화된 값이 들어가야 한다. 제출값을 그대로 담으면
+ *    `readToken` 의 사용자명 비교에서 걸려 발급 직후 세션이 무효가 된다.
+ */
+export async function startSession(): Promise<void> {
+  const secret = adminEnv('ADMIN_SESSION_SECRET')
+  const username = adminEnv('ADMIN_USERNAME')
   if (!secret) throw new Error('ADMIN_SESSION_SECRET 이 없습니다.')
+  if (!username) throw new Error('ADMIN_USERNAME 이 없습니다.')
 
   const store = await cookies()
   store.set(SESSION_COOKIE, createToken(username, secret), {
@@ -179,7 +239,7 @@ export async function endSession(): Promise<void> {
 
 /** 현재 요청의 관리자 세션. 없거나 무효면 `null`. */
 export async function getAdminSession(): Promise<{ username: string } | null> {
-  const secret = process.env.ADMIN_SESSION_SECRET
+  const secret = adminEnv('ADMIN_SESSION_SECRET')
   if (!secret) return null
 
   const token = (await cookies()).get(SESSION_COOKIE)?.value

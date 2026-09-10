@@ -4,8 +4,8 @@ import { redirect } from 'next/navigation'
 import {
   LOGIN_LOCK_WINDOW_MINUTES,
   auditContext,
-  isLoginLocked,
   logAdminAction,
+  loginGate,
 } from '@/lib/admin/audit'
 import {
   checkCredentials,
@@ -29,9 +29,18 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const context = await auditContext()
 
   // 브루트포스 차단을 자격증명 검증보다 먼저 한다.
-  if (await isLoginLocked(context)) {
+  // 차단 이유를 구분해 알려준다 — 설정 실수를 브루트포스로 오인하면
+  // 원인을 찾을 수 없다. 둘 다 자격증명 정보를 흘리지 않는다.
+  const gate = await loginGate(context)
+  if (gate === 'locked') {
     return {
       error: `로그인 시도가 너무 많습니다. ${LOGIN_LOCK_WINDOW_MINUTES}분 후 다시 시도해 주세요.`,
+    }
+  }
+  if (gate === 'unavailable') {
+    return {
+      error:
+        '감사 로그를 확인할 수 없어 로그인을 차단했습니다. Supabase 설정과 admin_audit_log 테이블을 확인하세요.',
     }
   }
 
@@ -42,8 +51,8 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
     return { error: '아이디 또는 비밀번호가 올바르지 않습니다.' }
   }
 
-  await logAdminAction({ action: 'login_success', actor: username, context })
-  await startSession(username)
+  await logAdminAction({ action: 'login_success', actor: username.trim(), context })
+  await startSession()
   redirect('/admin')
 }
 
