@@ -131,6 +131,38 @@ Personal Access Token 과 DB 비밀번호가 추가로 필요해 노출면이 �
 상태에서 배포 파이프라인 설정을 추가한 것이 실수였다.** 검증 수단(로그 접근 또는 CI)이 먼저다.
 ADR-011 에 개정으로 남겼다.
 
+### Vercel 배포 실패 — 계속 미해결 (2026-09-10)
+
+`vercel.json` 을 제거한 뒤에도 배포가 실패했다. **가설이 틀렸다. `vercel.json` 은 원인이 아니다.**
+
+지금까지 실패한 배포:
+
+| 커밋 | 배포 ID | vercel.json | next |
+|---|---|---|---|
+| `bdf8af7` | `BrXUYEGgh5cog…` | 있음 | 15.5.4 |
+| `bdf8af7` (재시도) | `AQWNjCUBoA88…` | 있음 | 15.5.4 |
+| `e4ed7a1` | `EWKNGZvPoukc…` | 없음 | 15.5.25 |
+| `9dfe061` | `FMo6TJQqK5PX…` | 없음 | 15.5.25 |
+
+4회 연속 실패. 플레이크가 아니다.
+
+**결정적 반증**: 같은 커밋(`9dfe061`)에서 **GitHub Actions CI 가 통과**했다
+(`npm ci` → typecheck → lint → build, Node 22, 47초). 소스와 빌드는 정상이며 실패는
+**Vercel 환경에 국한**된다.
+
+**새 관찰**: 이 프로젝트는 **최초 배포부터 실패**했다(`bdf8af7`, 연동 직후). 성공한 배포가
+한 번도 없다. 따라서 내 커밋 내용보다 **Vercel 프로젝트 수준 설정**이 더 의심스럽다.
+확인 대상: Framework Preset, Root Directory, Node.js Version, Build Command 오버라이드,
+무료 플랜 빌드 한도.
+
+**남은 코드 쪽 후보**: `playwright` devDependency. Vercel 은 `npm ci` 로 devDependencies 까지
+설치하고 playwright postinstall 이 Chromium(약 170MB)을 내려받는다. CI 는
+`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` 로 이 경로를 타지 않지만 Vercel 에는 그 변수가 없다.
+
+**조치**: Vercel 배포 로그 접근 수단(토큰)이 없고 배포 재실행 수단도 없다. PR #1 에 실패 내용·
+배제한 가설·필요한 것(Building 로그 마지막 에러)을 한 번 코멘트로 남기고 대기한다.
+**추측으로 두 번째 수정을 밀어넣지 않는다** — 첫 번째(`vercel.json` 되돌림)가 그 방식이었고 틀렸다.
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)
@@ -138,4 +170,6 @@ ADR-011 에 개정으로 남겼다.
 3. 접수 알림(Slack/이메일) 구현
 4. 보관기간 경과 데이터 삭제 잡(`pg_cron`)
 5. 파비콘 / OG 이미지
-6. 저장소 기본 브랜치를 `main` 으로 변경 (수동)
+6. ~~저장소 기본 브랜치를 `main` 으로 변경~~ — 완료 (2026-09-10)
+7. **Vercel 배포 실패 원인 규명** — 로그 확보 후. 프로젝트 설정 우선 확인
+8. `postcss` high 취약점 — Next 16 메이저 업그레이드 별도 작업
