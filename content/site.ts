@@ -35,12 +35,19 @@ export const nav = [
   { href: '/contact', label: '문의' },
 ] as const
 
-/** 홈 상단 신뢰 지표. 실제 수치로 교체 전까지 대외 공개 금지. */
+/**
+ * 홈 상단 신뢰 지표.
+ *
+ * ⚠️ 값이 `XXX` / `OO` 인 것은 **근거 자료가 없어 플레이스홀더로 치환한 것**이다.
+ *    구체적인 숫자를 근거 없이 게재하면 표시광고법 리스크가 된다(허위·과장 광고).
+ *    근거(계약 건수 대장, 설치 대장, 실적 집계 등)를 확보한 항목만 실제 숫자로
+ *    바꾸고, 확보하지 못한 항목은 **숫자를 만들지 말고 이 배열에서 제거**한다.
+ */
 export const metrics = [
-  { value: '320+', label: '누적 구축 프로젝트' },
-  { value: '12,000대', label: '단말기 설치·운영' },
-  { value: '90일', label: '평균 등록 소요' },
-  { value: '24/7', label: '장애 대응 체계' },
+  { value: 'XXX+', label: '누적 구축 프로젝트' },
+  { value: 'X,XXX대', label: '단말기 설치·운영' },
+  { value: 'XX일', label: '평균 등록 소요' },
+  { value: 'OO', label: '장애 대응 체계' },
 ] as const
 
 export const partnerLogos = [

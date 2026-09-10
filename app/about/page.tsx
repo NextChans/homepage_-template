@@ -27,11 +27,15 @@ const principles = [
   },
 ]
 
+/**
+ * ⚠️ 연혁도 회사의 실적 주장이다. 확인되지 않은 연도·내용을 게재하지 않도록
+ *    연도를 플레이스홀더로 두었다. 실제 연혁으로 교체하거나 섹션을 제거할 것.
+ */
 const history = [
-  { year: '2026', body: '오픈뱅킹 이용기관 연동 프로젝트 다수 수행' },
-  { year: '2025', body: '금융 클라우드 이용등록 컨설팅 라인 신설' },
-  { year: '2024', body: '전자금융업 등록 컨설팅 본격화' },
-  { year: '2023', body: 'VAN 단말 공급 및 PG 영업대행 사업 시작' },
+  { year: 'OOOO', body: '오픈뱅킹 이용기관 연동 프로젝트 수행' },
+  { year: 'OOOO', body: '금융 클라우드 이용등록 컨설팅 라인 신설' },
+  { year: 'OOOO', body: '전자금융업 등록 컨설팅 본격화' },
+  { year: 'OOOO', body: 'VAN 단말 공급 및 PG 영업대행 사업 시작' },
 ]
 
 export default function AboutPage() {

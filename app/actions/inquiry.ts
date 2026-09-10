@@ -2,12 +2,14 @@
 
 import { createHash } from 'node:crypto'
 import { headers } from 'next/headers'
+import { features } from '@/content/features'
 import {
   MIN_FILL_MS,
   inquirySchema,
   type InquiryFieldErrors,
   type InquiryFormState,
 } from '@/lib/inquiry-schema'
+import { notifyInquiry } from '@/lib/notify/slack'
 import { getServiceClient, supabaseConfigHint } from '@/lib/supabase/server'
 
 /** 동일 IP 해시 기준 레이트리밋 */
@@ -42,6 +44,17 @@ export async function submitInquiry(
   _prev: InquiryFormState,
   formData: FormData,
 ): Promise<InquiryFormState> {
+  // ── 0. 기능 플래그 확인 (심층 방어) ─────────────────────────────────────
+  //
+  // ⚠️ UI 를 숨기는 것만으로는 부족하다. Server Action 은 모듈 그래프에 포함되면
+  //    고유 id 로 등록되어 **폼 없이도 직접 POST 될 수 있다.** 폼을 내린 동안
+  //    개인정보가 저장되는 경로가 열려 있으면 "수집하지 않는다" 는 전제가 깨진다.
+  //    그래서 서버 측에서도 명시적으로 차단한다.
+  if (!features.inquiryForm) {
+    console.warn('[inquiry] 폼이 비활성 상태인데 접수 요청이 들어왔습니다. 차단합니다.')
+    return fail('현재 온라인 접수를 받지 않습니다. 전화 또는 이메일로 문의해 주세요.')
+  }
+
   // ── 1. 봇 차단 (honeypot + 최소 작성 시간) ──────────────────────────────
   if (String(formData.get('company_website') ?? '').length > 0) {
     // 봇에게는 성공처럼 보이게 응답한다(정보 노출 최소화).
@@ -108,24 +121,39 @@ export async function submitInquiry(
 
   // ── 5. 저장 ─────────────────────────────────────────────────────────────
   const input = parsed.data
-  const { error } = await supabase.from('inquiries').insert({
-    name: input.name,
-    company: input.company,
-    email: input.email,
-    phone: input.phone,
-    service_slug: input.serviceSlug,
-    message: input.message,
-    privacy_consent: input.privacyConsent,
-    marketing_consent: input.marketingConsent,
-    source_path: headerList.get('referer'),
-    ip_hash: ipHash,
-    user_agent: userAgent,
-  })
+  const { data: inserted, error } = await supabase
+    .from('inquiries')
+    .insert({
+      name: input.name,
+      company: input.company,
+      email: input.email,
+      phone: input.phone,
+      service_slug: input.serviceSlug,
+      message: input.message,
+      privacy_consent: input.privacyConsent,
+      marketing_consent: input.marketingConsent,
+      source_path: headerList.get('referer'),
+      ip_hash: ipHash,
+      user_agent: userAgent,
+    })
+    .select('id')
+    .single()
 
   if (error) {
     // 개인정보가 로그에 남지 않도록 입력값은 절대 출력하지 않는다.
     console.error('[inquiry] insert 실패', { code: error.code, message: error.message })
     return fail('접수 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.')
+  }
+
+  // ── 6. 접수 알림 (best-effort) ─────────────────────────────────────────
+  // 알림 실패가 접수를 실패로 만들지 않는다. notifyInquiry 는 throw 하지 않는다.
+  // 개인정보(이름·이메일·연락처·본문)는 알림에 넣지 않는다 — lib/notify/slack.ts 참고.
+  if (inserted?.id) {
+    await notifyInquiry({
+      id: String(inserted.id),
+      serviceSlug: input.serviceSlug,
+      company: input.company,
+    })
   }
 
   return {

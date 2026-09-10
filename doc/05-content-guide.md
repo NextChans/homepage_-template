@@ -20,9 +20,13 @@
 
 ## 검증 후 공개 (근거 없으면 삭제)
 
-- [ ] `content/site.ts` → `metrics` 4개 (`320+`, `12,000대`, `90일`, `24/7`)
-- [ ] `app/page.tsx` → `PanelStats` 수치 (`90일`, `3영업일`, `96%`, `자동`, `5년`, `24/7`)
-- [ ] `app/about/page.tsx` → `history` 연혁 4건
+> 아래 수치는 **`XXX+` / `X,XXX대` / `OO` / `OOOO` 플레이스홀더로 치환된 상태**다
+> (2026-09-10, ADR-014). 근거를 확보한 항목만 실제 숫자로 바꾸고,
+> **확보하지 못한 항목은 숫자를 만들지 말고 배열에서 제거**할 것.
+
+- [ ] `content/site.ts` → `metrics` 4개 (`XXX+`, `X,XXX대`, `XX일`, `OO`)
+- [ ] `app/page.tsx` → `PanelStats` 수치 (`XX일`, `X영업일`, `XX%`, `OO`, `X년`, `OO`)
+- [ ] `app/about/page.tsx` → `history` 연혁 4건 (연도 `OOOO`)
 - [ ] `content/services.ts` → 각 서비스 `duration` (`표준 3 – 10 영업일` 등)
 - [ ] `content/services.ts` → 상세 본문의 요건·절차 서술 (법령 개정 여부 확인)
 
@@ -31,6 +35,14 @@
 - [ ] `content/site.ts` → `partnerLogos` (현재 `VAN A`, `PG C` 등 임시 텍스트)
       → 실제 상호/로고는 **제휴사 서면 사용 동의 필수**
 - [ ] `components/logo-strip.tsx` → 텍스트를 `next/image` 로 교체
+
+## 현재 내려둔 기능
+
+`content/features.ts` 플래그로 비활성. 재활성화 체크리스트는 그 파일 주석 참고.
+
+- [ ] 상담 문의 폼 (`features.inquiryForm`) — 전화·이메일로만 문의 접수 중
+- [ ] 개인정보처리방침 공개 (`features.privacyPolicy`) — 초안 상태
+- [ ] 접수 Slack 알림 — 배선 완료, `SLACK_INQUIRY_WEBHOOK_URL` 미설정
 
 ## 없는 것 (필요하면 추가)
 
