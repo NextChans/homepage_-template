@@ -331,9 +331,86 @@ Production 주소는 **https://homepage-template-ivory.vercel.app** 이다.
 '전화 걸기' 노출, `/privacy` 404, sitemap 에서 `/privacy` 제외, robots disallow 제거,
 빌드 산출물에 Server Action 차단 코드 포함 확인.
 
+### 관리자 조회 화면 (`/admin`) 신설 (2026-09-10)
+
+사용자 요청: 상담 요청이 들어오면 DB 내용을 조회할 수 있는 관리자 페이지, ID/PW 로그인.
+
+`doc/06-security-compliance.md` 에 "관리자 조회 경로 없음 — 만들 경우 인증 + 접근 감사
+로그를 함께 설계한다" 로 남겨둔 항목을 해소했다. 상세는 ADR-015 / `doc/10-admin.md`.
+
+| 파일 | 내용 |
+|---|---|
+| `supabase/migrations/20260910000002_admin_audit_log.sql` | 신규. 감사 로그 + 로그인 실패 카운트 겸용. RLS on·정책 0개. `target_id` 에 FK 없음(문의 삭제 후에도 이력 보존) |
+| `lib/admin/auth.ts` | scrypt 검증 + HMAC 서명 세션 쿠키(8시간). 타이밍 세이프 비교 |
+| `lib/admin/audit.ts` | 감사 기록 + 브루트포스 잠금(15분/5회, **fail-closed**) |
+| `lib/admin/inquiries.ts` | 읽기 전용 조회. 목록에서 이메일·연락처 마스킹 |
+| `lib/admin/guard.ts` | `requireAdminSession()` — **페이지마다** 호출 |
+| `lib/admin/login-state.ts` | `LoginState` 타입 분리 |
+| `app/admin/**` | 로그인 / 목록 / 상세. 전부 `force-dynamic` |
+| `components/admin/login-form.tsx` | `useActionState` |
+| `scripts/hash-admin-password.mjs` | 해시 생성기. 12자 미만 거부 |
+| `app/robots.ts` | `/admin` disallow 추가 |
+
+**핵심 판단 3가지** (근거는 ADR-015)
+1. **Supabase Auth 를 쓰지 않았다.** 도입하면 `authenticated` 롤에 RLS 정책을 열어야 하고,
+   "브라우저에서 도달 가능한 읽기 경로가 없다" 는 이 프로젝트의 불변식이 깨진다.
+2. **기능 플래그를 두지 않았다.** 자격증명 3개가 모두 있어야 활성화되고 하나라도 없으면
+   3개 라우트 전부 404. 플래그를 켜고 자격증명을 잊는 조합이 구조적으로 불가능하다.
+3. **가드를 레이아웃이 아니라 페이지마다 호출한다.** App Router 레이아웃은 클라이언트
+   내비게이션에서 재실행이 보장되지 않는다.
+
+**시행착오 2건**
+1. `'use server'` 파일에서 `initialLoginState` **객체를 export** 해 빌드가 깨졌다
+   (`A "use server" file can only export async functions`). `lib/admin/login-state.ts`
+   로 분리했다.
+2. `/admin/login` 이 **Static 으로 프리렌더**됐다. 빌드 시점에는 `ADMIN_*` 환경변수가
+   없으므로 그때의 `notFound()` 가 산출물에 굳어 **영구 404** 가 될 수 있었다.
+   `force-dynamic` 을 로그인 페이지와 admin 레이아웃에 추가했다.
+
+**검증**: 자격증명 미설정 시 3개 라우트 404 확인. 실제 브라우저(Playwright)로 흐름
+16개 항목 통과 — 미인증 리다이렉트 / 비밀번호 오류 / 아이디 오류 시 **같은 메시지** /
+정상 로그인 / 쿠키 속성 4가지(HttpOnly·SameSite=Strict·path=/admin·만료 8시간) /
+**위조 쿠키 거부** / 로그아웃 시 쿠키 제거. 12자 미만 비밀번호는 스크립트가 거부.
+Supabase 미설정 상태에서 감사 로그 실패가 **서버 로그로 드러남**도 확인(조용히 넘기지 않음).
+
+**활성화에 필요한 것 (사용자 작업)**
+1. 마이그레이션 `20260910000002_admin_audit_log.sql` 실행
+2. `node scripts/hash-admin-password.mjs '비밀번호'` → Vercel 에 `ADMIN_USERNAME`,
+   `ADMIN_PASSWORD_HASH`, `ADMIN_SESSION_SECRET` 등록 (**타입 Secret**)
+3. `INQUIRY_IP_HASH_SALT` 설정 확인 — 없으면 로그인 잠금이 동작하지 않는다
+
+### 키오스크 서비스 추가 — 일반형·베리어프리 (2026-09-10)
+
+사용자 요청: "키오스크도 판매하니까 추가", "일반형, 베리어프리도 있다는 걸 같이 기재".
+서비스 5종 → **6종**. 배치는 하드웨어끼리 묶어 2번(밴 단말기 다음). 상세는 ADR-016.
+
+| 변경 | 내용 |
+|---|---|
+| `content/services.ts` | `kiosk` 추가(`mark: '02'`). 뒤쪽 4종 `mark` 를 `03`…`06` 으로 재번호. 밴 단말기 `intro` 에서 "무인 키오스크" 제거(중복 인상 제거). `serviceCountKo` 신설 |
+| `supabase/migrations/20260910000003_inquiries_add_kiosk_slug.sql` | `inquiries_service_slug_check` 에 `kiosk` 추가 |
+| `components/service-grid.tsx` | `cardSpan()` — 마지막 행 빈칸 자동 보정 |
+| `app/services/page.tsx`, `app/page.tsx`, `content/site.ts` | 개수 문안을 `serviceCountKo` 로, 나열 문안·메타 설명에 키오스크 반영 |
+| `scripts/screenshot.mjs` | `/services/kiosk` 캡처 대상 추가 |
+
+**개수 하드코딩 2건이 조용히 틀어져 있었다** (5종 전제)
+1. `"다섯 개의 일."` — `service-grid.tsx`, `app/services/page.tsx` 두 곳.
+   → `serviceCountKo` 파생값으로 통일.
+2. 벤토 그리드 — 첫 카드가 2칸을 먹으므로 3열 마지막 행이 **카드 1개 + 빈칸 2개**.
+   → `cardSpan()` 이 `열 수 - (total % 열 수)` 로 남는 칸을 계산해 마지막 카드를 늘린다.
+   span 클래스는 Tailwind 스캔 때문에 **정적 문자열 맵**으로 둔다.
+
+**문안 판단**: 무인정보단말기 접근성 요건은 적용 대상·시점이 시설 유형·규모에 따라
+단계적이므로 **시행일·규모 기준을 카피에 단정하지 않았다.** "설치 의무가 있습니다" 같은
+단정도 쓰지 않고, 산출물에 `베리어프리 사양 검토` 항목으로 **무엇을 해주는지**를 적었다.
+
+**검증**: typecheck·lint·build 통과, `/services/kiosk` SSG 생성. 라이트·다크·모바일
+스크린샷으로 그리드 빈칸 없음, `"여섯 개의 일."` 반영, 히어로 1줄 유지, 모바일 가로
+스크롤 없음 확인.
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)
+1-1. 키오스크 실제 취급 기종·리드타임·베리어프리 사양으로 임시값 교체 (ADR-016)
 2. `doc/06-security-compliance.md` 의 **높음** 리스크 4건
 3. 접수 알림(Slack/이메일) 구현
 4. 보관기간 경과 데이터 삭제 잡(`pg_cron`)
@@ -341,3 +418,5 @@ Production 주소는 **https://homepage-template-ivory.vercel.app** 이다.
 6. ~~저장소 기본 브랜치를 `main` 으로 변경~~ — 완료 (2026-09-10)
 7. **Vercel 배포 실패 원인 규명** — 로그 확보 후. 프로젝트 설정 우선 확인
 8. `postcss` high 취약점 — Next 16 메이저 업그레이드 별도 작업
+9. `admin_audit_log` 보관기간 정책 + `pg_cron` 정리 잡
+10. 운영자 2명 이상이 되면 관리자 인증을 Supabase Auth + MFA 로 이전 (ADR-015)

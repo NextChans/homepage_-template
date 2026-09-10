@@ -18,6 +18,7 @@ const pages = [
   ['home', '/', true],
   ['services', '/services', true],
   ['service-detail', '/services/efin-license', true],
+  ['service-kiosk', '/services/kiosk', true],
   ['about', '/about', true],
   ['contact', '/contact', true],
 ]
