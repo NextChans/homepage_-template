@@ -34,7 +34,7 @@ export function SiteHeader() {
           >
             {site.name}
             <span className="ml-1.5 text-[11px] font-medium tracking-[0.08em] text-ink-muted">
-              {site.nameEn}
+              {site.nameKo}
             </span>
           </Link>
 

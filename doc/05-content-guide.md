@@ -3,14 +3,15 @@
 **확정된 값과 임시 값이 섞여 있다.** 체크가 안 된 항목이 아직 임시다.
 실서비스 전에 아래를 교체한다. 작업 절차는 `.claude/skills/homepage-content/SKILL.md` 참고.
 
-**확정 (2026-09-10)**: 상호 `Work In Trust`, 약어 표기 `W.I.T`, 대표자 `최봉균`.
+**확정 (2026-09-10)**: 상호 `WITUS`(한글 `위투스`), 대표자 `최봉균`.
+`Work In Trust` + `us` 에서 온 이름이다 — "우리" 가 들어가 팀의 뉘앙스를 담는다.
 
 ## 필수 교체 (법적·사실 정보)
 
-- [x] `content/site.ts` → `site.name` = `W.I.T`, `site.nameEn` = `WORK IN TRUST` (2026-09-10 확정)
+- [x] `content/site.ts` → `site.name` = `WITUS`, `site.nameKo` = `위투스` (2026-09-10 확정)
 - [x] `content/site.ts` → `company.ceo` = `최봉균` (2026-09-10 확정)
 - [ ] `content/site.ts` → `site.legalName` — **사업자등록증 상의 정식 법인명**
-      (법인 형태 포함). 현재 `Work In Trust` 로 두었고 **임의로 '주식회사' 를 붙이지
+      (법인 형태 포함). 현재 `WITUS` 로 두었고 **임의로 '주식회사' 를 붙이지
       않았다** — 푸터·개인정보처리방침의 사업자 표시 정보라 틀리면 문제가 된다
 - [ ] `content/site.ts` → `company.bizNo` (사업자등록번호)
 - [ ] `content/site.ts` → `company.address`
