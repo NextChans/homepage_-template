@@ -143,12 +143,31 @@ if (process.argv[2] === '--verify') {
   const candidate = await readHidden('확인할 비밀번호 (화면에 안 보임): ')
   const ok = verify(candidate, stored)
   console.log(`비밀번호 일치: ${ok ? '✓ 맞습니다' : '✗ 틀립니다'}`)
-  console.log('')
-  if (!ok) {
-    console.log('해시 형식이 정상인데 비밀번호가 틀리면 해시를 만들 때 오타가 있었습니다.')
-    console.log('인자 없이 다시 실행해 새로 만드세요 (두 번 물어봅니다).')
+
+  // ⚠️ 여기가 이 모드의 핵심 진단이다.
+  //    "붙여넣으면 맞는데 브라우저에서 타이핑하면 틀린" 사고의 원인은 거의 항상
+  //    비밀번호 앞뒤의 공백이다. 서버는 폼 입력을 trim 하지 않으므로(공백도
+  //    비밀번호의 일부) 공백이 포함된 해시는 타이핑으로는 절대 통과하지 못한다.
+  const hasEdgeSpace = candidate !== candidate.trim()
+  if (ok && hasEdgeSpace) {
     console.log('')
+    console.log('⚠️ 방금 입력한 값에 **앞뒤 공백이 있습니다.**')
+    console.log('   즉 이 해시는 공백이 포함된 비밀번호로 만들어졌습니다.')
+    console.log('   브라우저에 타이핑해서 로그인하면 그 공백을 입력하지 않으므로')
+    console.log('   **반드시 실패합니다.** 공백 없이 해시를 다시 만들어 교체하세요.')
   }
+  if (!ok) {
+    console.log('')
+    if (verify(candidate.trim(), stored)) {
+      console.log('⚠️ 앞뒤 공백을 제거하면 **맞습니다.**')
+      console.log('   입력한 값에 공백이 딸려온 것입니다. 해시는 정상입니다.')
+    } else {
+      console.log('해시 형식이 정상인데 비밀번호가 틀리면, 해시를 만들 때 쓴 비밀번호가')
+      console.log('지금 입력한 것과 다릅니다(오타 또는 앞뒤 공백).')
+      console.log('인자 없이 다시 실행해 새로 만드세요 — 두 번 물어보고 공백도 거부합니다.')
+    }
+  }
+  console.log('')
   process.exit(ok ? 0 : 1)
 }
 
@@ -167,6 +186,23 @@ if (password.length < MIN_LENGTH) {
   console.error('')
   console.error(`✗ 비밀번호가 너무 짧습니다 (${password.length}자). ${MIN_LENGTH}자 이상을 쓰세요.`)
   console.error('  개인정보 조회 화면을 지키는 유일한 자격증명입니다.')
+  console.error('')
+  process.exit(1)
+}
+
+// ⚠️ 앞뒤 공백은 거부한다. 실제로 겪은 사고다 —
+//    비밀번호 관리자에서 붙여넣으면 끝에 공백이 따라오는 경우가 있고, 그 공백까지
+//    해시에 들어간다. 로컬에서 같은 값을 붙여넣어 검증하면 통과하지만, 브라우저에
+//    **타이핑**해서 로그인할 때는 그 공백을 입력하지 않으므로 영원히 실패한다.
+//    서버는 폼으로 들어온 비밀번호를 trim 하지 않기 때문에(공백도 비밀번호의 일부)
+//    생성 시점에 막는 것이 맞다.
+if (password !== password.trim()) {
+  console.error('')
+  console.error('✗ 비밀번호의 앞이나 뒤에 공백이 있습니다.')
+  console.error('  붙여넣기 과정에서 따라온 공백일 가능성이 높습니다.')
+  console.error('  이 상태로 해시를 만들면 브라우저에서 타이핑해 로그인할 때 반드시 실패합니다')
+  console.error('  (서버는 입력된 비밀번호를 trim 하지 않습니다 — 공백도 비밀번호의 일부).')
+  console.error('  공백 없이 다시 입력하세요.')
   console.error('')
   process.exit(1)
 }
