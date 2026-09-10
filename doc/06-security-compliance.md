@@ -70,7 +70,22 @@ skip link, `aria-invalid` / `aria-describedby` 로 필드 에러 연결, `aria-e
 
 - [ ] CSRF 는 Next.js Server Action 의 Origin 검증에 의존. 별도 토큰 없음.
 - [ ] 백업/복구 정책(Supabase PITR) 미정.
-- [ ] 취약점 스캔·의존성 감사(`npm audit`)를 CI 에 넣지 않았다.
+- [x] CI 추가 (`.github/workflows/ci.yml`) — PR·main push 마다 typecheck / lint / build.
+      비밀값을 요구하지 않는다(빌드는 Supabase env 없이 통과하도록 설계).
+- [ ] `npm audit` 을 CI 게이트로 넣을지 결정. 현재는 수동 실행.
+
+### 의존성 취약점 현황 (2026-09-10)
+
+| 패키지 | 등급 | 내용 | 처리 |
+|---|---|---|---|
+| `next` 15.5.4 | — | CVE-2025-66478 (npm 이 deprecated 경고로 표시) | **15.5.25 로 업그레이드 완료** |
+| `sharp` | high | libvips/libheif 취약점 (CVE-2026-33327 등) | `npm audit fix` 로 해소 완료 |
+| `postcss` | **high** | `</style>` 미이스케이프 XSS, sourceMappingURL 통한 임의 파일 읽기 | **미해소.** next 의 전이 의존이며 수정에 `next@16` (semver major) 필요 |
+| `next` | moderate | 위 postcss 전이 | 동일 |
+
+**postcss 는 빌드 타임 도구**라 런타임 노출면은 아니지만, 신뢰할 수 없는 CSS 를 빌드에 넣지
+않는다는 전제가 유지되어야 한다. 해소하려면 Next 16 메이저 업그레이드가 필요하므로 별도
+작업으로 분리한다 (App Router 호환성·Tailwind v4 연동 재검증 필요).
 
 ## 절대 하지 않을 것
 
