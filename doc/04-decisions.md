@@ -94,3 +94,37 @@
 - **결정** `size: 'display' | 'headline'`. 홈만 `display`, 나머지는 `headline`.
 - **근거** 한국어는 라틴 문자보다 자폭이 넓다. 스케일을 그대로 이식하면 Apple 원본의
   "한 문장이 화면을 지배하는" 효과가 오히려 깨진다.
+
+---
+
+## ADR-009. Supabase 환경변수 이름을 두 체계 모두 지원
+
+- **맥락** Vercel 배포를 붙이려고 확인해 보니, Vercel 의 Supabase Marketplace 연동이 주입하는
+  변수명이 우리 `.env.example` 과 달랐다. 연동은 `SUPABASE_URL` / `SUPABASE_SECRET_KEY` 를
+  넣고, 우리가 읽던 `SUPABASE_SERVICE_ROLE_KEY` 와 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 는
+  넣지 않는다. 그대로 두면 **연동을 켜도 앱은 "미설정" 상태로 조용히 동작**한다.
+- **또 하나** Supabase 는 레거시 `anon` / `service_role` JWT 를 신형
+  `sb_publishable_...` / `sb_secret_...` 로 대체하며 레거시는 2026년 말 지원 종료 예정이다.
+- **결정** `lib/supabase/server.ts` 가 우선순위 배열로 두 체계를 모두 찾는다.
+  - URL: `NEXT_PUBLIC_SUPABASE_URL` → `SUPABASE_URL`
+  - 비밀키: `SUPABASE_SECRET_KEY` → `SUPABASE_SERVICE_ROLE_KEY`
+  신형을 먼저 본다. 읽는 지점은 여전히 이 파일 한 곳뿐이다.
+- **근거** 이름을 한쪽으로 고정하면 (a) 연동 방식을 바꿀 때마다 코드를 고쳐야 하고
+  (b) 레거시 키 종료 시 다시 고쳐야 한다. 배열 두 개로 양쪽을 흡수하는 비용이 훨씬 낮다.
+- **대안** Vercel 쪽에서 변수명을 우리 이름으로 다시 매핑 — 대시보드에 숨은 설정이 늘어나고
+  저장소만 봐서는 알 수 없게 된다. 채택하지 않았다.
+- **남는 위험** 두 이름이 동시에 존재하고 값이 다르면 신형이 조용히 이긴다. 의도한 동작이지만,
+  키를 교체할 때 옛 이름을 지우지 않으면 혼란이 생길 수 있다.
+
+---
+
+## ADR-010. 개발 안내 배너를 NODE_ENV 로 차단
+
+- **맥락** `/contact` 에는 Supabase 미설정 시 "환경변수가 없다"는 개발용 배너가 있었고,
+  제거는 `doc/05-content-guide.md` 의 수동 체크리스트에 맡겨져 있었다.
+- **결정** `process.env.NODE_ENV === 'production'` 이면 렌더링하지 않는다.
+- **근거** 수동 체크리스트는 잊힌다. env 주입이 실패한 채로 배포되면 방문자에게 내부 설정
+  정보가 노출된다. 코드로 막는 편이 확실하다.
+- **부수 효과** 프로덕션에서 배너가 안 보이는 것이 정상 동작이 되므로, env 주입 실패는
+  배너가 아니라 **서버 로그(`supabaseConfigHint()`)와 실제 제출 테스트**로 확인해야 한다.
+  `doc/09-deployment.md` 검증 체크리스트에 그렇게 적었다.

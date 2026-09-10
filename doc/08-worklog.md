@@ -63,6 +63,32 @@
 > **남은 수동 작업**: 저장소 기본 브랜치가 아직 피처 브랜치다. GitHub Settings → General →
 > Default branch 에서 `main` 으로 변경해야 한다. API 로 바꿀 도구가 없어 처리하지 못했다.
 
+### Supabase · Vercel 연동 준비
+
+사용자가 Supabase 연결과 Vercel 배포를 요청. 비밀키를 받기 전에 **코드 쪽 선행 작업**을 먼저 했다.
+
+확인 과정에서 나온 문제 하나: **Vercel 의 Supabase Marketplace 연동이 주입하는 변수명이
+우리 코드와 달랐다.** 연동은 `SUPABASE_URL` / `SUPABASE_SECRET_KEY` 를 넣는데 우리는
+`SUPABASE_SERVICE_ROLE_KEY` 를 읽고 있었다. 그대로 배포하면 연동을 켜도 앱이 "미설정" 상태로
+조용히 동작한다. 또 Supabase 는 레거시 `anon`/`service_role` JWT 를 신형 `sb_secret_...` 로
+대체하며 레거시는 2026년 말 종료 예정이다.
+
+| 변경 | 내용 |
+|---|---|
+| `lib/supabase/server.ts` | URL·비밀키를 우선순위 배열로 조회해 **두 이름 체계 모두 지원**. 신형 우선 (ADR-009) |
+| `lib/supabase/server.ts` | `supabaseConfigHint()` 추가 — 누락 시 허용 이름을 로그로 안내. 키 값은 출력하지 않는다 |
+| `app/contact/page.tsx` | 개발 안내 배너를 `NODE_ENV === 'production'` 에서 차단 (ADR-010) |
+| `.env.example` | 두 체계 설명, salt 는 Supabase 소관이 아님을 명시 |
+| `doc/09-deployment.md` | **신규** — Supabase 프로젝트 생성 → SQL Editor 로 마이그레이션 → Vercel 임포트 → env → 검증 |
+| `.claude/skills/homepage-supabase` | env 절 갱신 + "비밀키를 다룰 때" 절 추가 |
+
+`vercel.json` 은 만들지 않았다. Next.js 는 Vercel 이 자동 감지하므로 불필요하고, 함수 리전
+코드를 검증 없이 박으면 배포가 깨진다. 리전은 문서에서 대시보드로 설정하도록 안내했다.
+
+마이그레이션 적용은 **대시보드 SQL Editor 를 권장**하기로 했다. CLI(`supabase db push`)는
+Personal Access Token 과 DB 비밀번호가 추가로 필요해 노출면이 넓다. SQL Editor 는 키를
+아무 곳으로도 내보내지 않는다. (이 컨테이너에는 supabase CLI 가 없고 psql 만 있다.)
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)

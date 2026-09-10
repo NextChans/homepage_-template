@@ -8,7 +8,7 @@ import {
   type InquiryFieldErrors,
   type InquiryFormState,
 } from '@/lib/inquiry-schema'
-import { getServiceClient } from '@/lib/supabase/server'
+import { getServiceClient, supabaseConfigHint } from '@/lib/supabase/server'
 
 /** 동일 IP 해시 기준 레이트리밋 */
 const RATE_LIMIT_WINDOW_MINUTES = 10
@@ -79,9 +79,7 @@ export async function submitInquiry(
   // ── 3. 저장소 확인 ──────────────────────────────────────────────────────
   const supabase = getServiceClient()
   if (!supabase) {
-    console.error(
-      '[inquiry] Supabase 환경변수가 설정되지 않았습니다. NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 를 확인하세요.',
-    )
+    console.error(supabaseConfigHint())
     return fail('일시적인 오류로 접수가 지연되고 있습니다. 전화로 문의해 주세요.')
   }
 

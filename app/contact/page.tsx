@@ -70,10 +70,11 @@ export default async function ContactPage({ searchParams }: PageProps) {
             </Reveal>
 
             <Reveal delay={80}>
-              {isSupabaseConfigured() ? null : (
+              {isSupabaseConfigured() || process.env.NODE_ENV === 'production' ? null : (
                 <p className="mb-6 rounded-2xl border border-hairline bg-surface px-5 py-4 text-[13px] text-ink-muted">
                   개발 안내: Supabase 환경변수가 설정되지 않아 접수가 저장되지 않습니다.{' '}
-                  <code className="text-ink">.env.local</code> 을 확인하세요. (운영 배포 전 제거)
+                  <code className="text-ink">.env.local</code> 을 확인하세요. 이 안내는 개발
+                  환경에서만 표시됩니다.
                 </p>
               )}
               <ContactForm options={options} defaultServiceSlug={preset} />

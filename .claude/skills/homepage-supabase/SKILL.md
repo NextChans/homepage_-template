@@ -69,16 +69,33 @@ CLI 를 쓸 수 없으면 Supabase 대시보드 → SQL Editor 에 파일 내용
 ## 5. 환경변수
 
 `.env.example` 을 복사해 `.env.local` 을 만든다. `.env.local` 은 커밋하지 않는다(`.gitignore` 처리됨).
+배포·연동 절차 전체는 `doc/09-deployment.md` 에 있다.
 
-| 변수 | 노출 | 용도 |
+`lib/supabase/server.ts` 가 **두 가지 이름 체계를 모두 지원한다.** 하나만 있으면 된다.
+
+| 용도 | 찾는 순서 | 노출 |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | 공개 | 프로젝트 URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 공개 | 현재 코드에서는 미사용(향후 클라이언트 조회용) |
-| `SUPABASE_SERVICE_ROLE_KEY` | **비공개** | Server Action 전용. RLS 우회 |
-| `INQUIRY_IP_HASH_SALT` | **비공개** | `openssl rand -hex 32` |
+| 프로젝트 URL | `NEXT_PUBLIC_SUPABASE_URL` → `SUPABASE_URL` | 공개 |
+| 비밀키 | `SUPABASE_SECRET_KEY` → `SUPABASE_SERVICE_ROLE_KEY` | **비공개** |
+| IP 해시 salt | `INQUIRY_IP_HASH_SALT` | **비공개** |
+| 사이트 절대 URL | `NEXT_PUBLIC_SITE_URL` | 공개 |
 
-미설정 시 빌드는 성공하고, 문의 페이지에 개발용 경고가 표시되며 접수는 에러 상태로 반환된다.
-운영 배포 전 4개 모두 설정하고, `app/contact/page.tsx` 의 개발 안내 블록 제거를 검토한다.
+- 신형 키(`sb_secret_...` / `sb_publishable_...`)를 먼저 본다.
+  레거시 `anon` / `service_role` JWT 는 **2026년 말 지원 종료 예정**이므로 신형을 쓴다.
+- **Vercel 의 Supabase Marketplace 연동은 `SUPABASE_URL` / `SUPABASE_SECRET_KEY` /
+  `NEXT_PUBLIC_SUPABASE_URL` 을 주입한다.** `SUPABASE_SERVICE_ROLE_KEY` 나
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` 는 주입하지 않는다. 그래서 두 체계를 모두 받는다.
+- `INQUIRY_IP_HASH_SALT` 는 Supabase 에서 받는 값이 아니다 — `openssl rand -hex 32` 로 만든다.
+- 이름을 추가·변경할 때는 `lib/supabase/server.ts` 의 `URL_ENV_KEYS` /
+  `SECRET_ENV_KEYS` 배열만 고친다. 값을 읽는 곳을 늘리지 않는다.
+
+### 비밀키를 다룰 때
+
+- **채팅·이슈·PR·커밋에 비밀키를 붙여넣지 않는다.** Supabase 대시보드 → Vercel 대시보드
+  사이에서만 오가게 한다. 마이그레이션은 대시보드 SQL Editor 로 적용하면 키가 전혀 필요 없다.
+- Vercel 에 넣을 때 **Sensitive 토글을 켠다.** 이후 값을 다시 읽을 수 없어 유출 경로가 줄어든다.
+- 운영/프리뷰는 **서로 다른 secret key 와 서로 다른 salt** 를 쓴다. 사고 시 해당 환경만 폐기한다.
+- 실수로 노출됐다면 즉시 Supabase 에서 해당 secret key 를 폐기(revoke)하고 새로 발급한다.
 
 ## 6. 운영 시 남은 작업 (미구현)
 

@@ -14,6 +14,7 @@
 | [06-security-compliance.md](./06-security-compliance.md) | 보안·개인정보·표시광고 리스크와 미해결 항목 |
 | [07-handoff.md](./07-handoff.md) | **다른 환경에서 이어가기** |
 | [08-worklog.md](./08-worklog.md) | 작업 기록 |
+| [09-deployment.md](./09-deployment.md) | **Supabase + Vercel 연동 절차** (비밀키를 채팅에 노출하지 않는 경로) |
 
 ## 문서 작성 규칙
 

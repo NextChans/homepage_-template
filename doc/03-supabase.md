@@ -39,17 +39,24 @@
 
 ## 환경변수
 
-`.env.example` 참고.
+`.env.example` 참고. 배포 절차는 `09-deployment.md`.
 
-| 변수 | 클라이언트 노출 | 필수 |
+`lib/supabase/server.ts` 가 **두 체계를 모두 지원한다** (ADR-009). 하나만 있으면 된다.
+
+| 용도 | 찾는 순서 | 클라이언트 노출 |
 |---|---|---|
-| `NEXT_PUBLIC_SITE_URL` | O | metadata/sitemap 절대 URL |
-| `NEXT_PUBLIC_SUPABASE_URL` | O | O |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | O | 현재 미사용 |
-| `SUPABASE_SERVICE_ROLE_KEY` | **X** | O |
-| `INQUIRY_IP_HASH_SALT` | **X** | 권장 (없으면 IP 해시 미저장) |
+| 프로젝트 URL | `NEXT_PUBLIC_SUPABASE_URL` → `SUPABASE_URL` | O |
+| 비밀키 | `SUPABASE_SECRET_KEY` → `SUPABASE_SERVICE_ROLE_KEY` | **X** |
+| IP 해시 salt | `INQUIRY_IP_HASH_SALT` | **X** |
+| 사이트 절대 URL | `NEXT_PUBLIC_SITE_URL` | O |
+| publishable 키 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (현재 미사용) | O |
 
-미설정 시: 빌드 성공 → `/contact` 에 개발용 경고 배너 → 제출 시 에러 상태 반환 + 서버 로그.
+- 신형 키(`sb_secret_...`)를 먼저 본다. 레거시 `service_role` JWT 는 2026년 말 지원 종료 예정.
+- Vercel Supabase 연동은 `SUPABASE_URL` / `SUPABASE_SECRET_KEY` 를 주입한다.
+- `INQUIRY_IP_HASH_SALT` 는 Supabase 에서 받는 값이 아니다 — `openssl rand -hex 32`.
+
+미설정 시: 빌드 성공 → `/contact` 에 개발용 경고 배너(**프로덕션에서는 표시되지 않는다**) →
+제출 시 에러 상태 반환 + 서버 로그(`supabaseConfigHint()`).
 
 ## 적용 방법
 
