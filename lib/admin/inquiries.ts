@@ -3,11 +3,11 @@ import 'server-only'
 import { getServiceClient } from '@/lib/supabase/server'
 
 /**
- * 관리자 화면용 문의 조회. **읽기 전용이다.**
+ * 관리자 화면용 문의 **조회**. 이 모듈에는 쓰기 함수를 넣지 않는다.
  *
- * 상태 변경(`status` / `handled_at` / `handled_by`)은 스키마에 준비되어 있지만
- * 이번 범위에 넣지 않았다 — 요청은 "조회" 였고, 쓰기 경로를 추가하면 공격면이
- * 늘어난다. 관리자 화면을 읽기 전용으로 두는 편이 안전하다. (ADR-015)
+ * 쓰기(직접 등록·상태 변경)는 `lib/admin/inquiry-write.ts` 에 있다.
+ * 어떤 코드가 고객 개인정보를 변경할 수 있는지 import 만 보고 알 수 있게
+ * 일부러 나눴다. (ADR-018)
  */
 
 export type InquiryListItem = {
@@ -17,20 +17,25 @@ export type InquiryListItem = {
   name: string
   serviceSlug: string
   status: string
-  /** 마스킹된 값. 목록에서는 전체 값을 노출하지 않는다. */
-  emailMasked: string
-  phoneMasked: string
+  /** 유입 경로. web=홈페이지 폼, phone/email/offline=직접 등록. */
+  intakeChannel: string
+  /** 마스킹된 값. 목록에서는 전체 값을 노출하지 않는다. 값이 없으면 `null`. */
+  emailMasked: string | null
+  phoneMasked: string | null
 }
 
 export type InquiryDetail = InquiryListItem & {
-  email: string
-  phone: string
+  /** 전화 문의는 이메일이, 이메일 문의는 연락처가 없을 수 있다. */
+  email: string | null
+  phone: string | null
   message: string
   privacyConsent: boolean
   marketingConsent: boolean
   sourcePath: string | null
   handledAt: string | null
   handledBy: string | null
+  /** 직접 등록한 관리자. 홈페이지 폼 유입은 `null`. */
+  createdBy: string | null
 }
 
 /**
@@ -62,7 +67,7 @@ export async function listInquiries(limit = 100): Promise<InquiryListItem[] | nu
 
   const { data, error } = await supabase
     .from('inquiries')
-    .select('id, created_at, company, name, email, phone, service_slug, status')
+    .select('id, created_at, company, name, email, phone, service_slug, status, intake_channel')
     .order('created_at', { ascending: false })
     .limit(limit)
 
@@ -78,8 +83,9 @@ export async function listInquiries(limit = 100): Promise<InquiryListItem[] | nu
     name: String(row.name),
     serviceSlug: String(row.service_slug),
     status: String(row.status),
-    emailMasked: maskEmail(String(row.email)),
-    phoneMasked: maskPhone(String(row.phone)),
+    intakeChannel: String(row.intake_channel),
+    emailMasked: row.email ? maskEmail(String(row.email)) : null,
+    phoneMasked: row.phone ? maskPhone(String(row.phone)) : null,
   }))
 }
 
@@ -91,7 +97,7 @@ export async function getInquiry(id: string): Promise<InquiryDetail | null> {
   const { data, error } = await supabase
     .from('inquiries')
     .select(
-      'id, created_at, company, name, email, phone, service_slug, message, status, privacy_consent, marketing_consent, source_path, handled_at, handled_by',
+      'id, created_at, company, name, email, phone, service_slug, message, status, privacy_consent, marketing_consent, source_path, handled_at, handled_by, intake_channel, created_by',
     )
     .eq('id', id)
     .maybeSingle()
@@ -102,8 +108,8 @@ export async function getInquiry(id: string): Promise<InquiryDetail | null> {
   }
   if (!data) return null
 
-  const email = String(data.email)
-  const phone = String(data.phone)
+  const email = data.email ? String(data.email) : null
+  const phone = data.phone ? String(data.phone) : null
 
   return {
     id: String(data.id),
@@ -112,8 +118,9 @@ export async function getInquiry(id: string): Promise<InquiryDetail | null> {
     name: String(data.name),
     serviceSlug: String(data.service_slug),
     status: String(data.status),
-    emailMasked: maskEmail(email),
-    phoneMasked: maskPhone(phone),
+    intakeChannel: String(data.intake_channel),
+    emailMasked: email ? maskEmail(email) : null,
+    phoneMasked: phone ? maskPhone(phone) : null,
     email,
     phone,
     message: String(data.message),
@@ -122,5 +129,6 @@ export async function getInquiry(id: string): Promise<InquiryDetail | null> {
     sourcePath: data.source_path ? String(data.source_path) : null,
     handledAt: data.handled_at ? String(data.handled_at) : null,
     handledBy: data.handled_by ? String(data.handled_by) : null,
+    createdBy: data.created_by ? String(data.created_by) : null,
   }
 }
