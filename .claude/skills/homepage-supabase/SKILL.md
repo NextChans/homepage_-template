@@ -93,7 +93,14 @@ CLI 를 쓸 수 없으면 Supabase 대시보드 → SQL Editor 에 파일 내용
 
 - **채팅·이슈·PR·커밋에 비밀키를 붙여넣지 않는다.** Supabase 대시보드 → Vercel 대시보드
   사이에서만 오가게 한다. 마이그레이션은 대시보드 SQL Editor 로 적용하면 키가 전혀 필요 없다.
-- Vercel 에 넣을 때 **Sensitive 토글을 켠다.** 이후 값을 다시 읽을 수 없어 유출 경로가 줄어든다.
+- Vercel 은 변수마다 **Config / Secret** 타입을 고르게 한다. 둘 다 빌드 타임에 읽히므로
+  동작 차이는 없고 가시성만 다르다.
+  - `NEXT_PUBLIC_*` → **Config**. 어차피 클라이언트 번들에 인라인되므로 Secret 으로 표시해도
+    비밀이 되지 않고, 값을 다시 볼 수 없어 **오타 검증이 불가능해진다**.
+  - 비밀값 → **Secret**. write-only 가 되고 빌드 로그에서 마스킹된다.
+  - ⚠️ Secret 으로 저장한 변수는 Config 로 바꿀 수 없다. 삭제 후 재등록해야 한다.
+- **`NEXT_PUBLIC_SUPABASE_URL` 에 `/rest/v1/` 를 붙이지 않는다.** supabase-js 가 자동으로
+  붙이므로 경로가 두 번 들어가 404 가 되고 저장이 조용히 실패한다. 끝 슬래시도 제거한다.
 - 운영/프리뷰는 **서로 다른 secret key 와 서로 다른 salt** 를 쓴다. 사고 시 해당 환경만 폐기한다.
 - 실수로 노출됐다면 즉시 Supabase 에서 해당 secret key 를 폐기(revoke)하고 새로 발급한다.
 

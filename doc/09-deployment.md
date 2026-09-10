@@ -48,12 +48,20 @@ Supabase 대시보드 → **Settings → API Keys → Publishable and secret API
 
 | 항목 | 어디에 쓰나 |
 |---|---|
-| Project URL (`https://xxxx.supabase.co`) | `NEXT_PUBLIC_SUPABASE_URL` |
+| Project URL (`https://xxxx.supabase.co`) | `NEXT_PUBLIC_SUPABASE_URL` — **`/rest/v1/` 를 포함하지 않는다** |
 | Publishable key (`sb_publishable_...`) | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (현재 코드 미사용) |
 | **Secret key (`sb_secret_...`)** | `SUPABASE_SECRET_KEY` — **서버 전용** |
 
 Secret key 는 여러 개 만들 수 있다. **환경별로 따로 발급**해 두면(운영/프리뷰) 사고 시
 해당 환경만 폐기할 수 있다.
+
+> ⚠️ **Project URL 에 `/rest/v1/` 를 붙이지 않는다.** 대시보드 화면에 따라 경로가 붙은 주소가
+> 보이지만, `@supabase/supabase-js` 가 `/rest/v1` 을 자동으로 붙인다. 경로를 포함하면 요청이
+> `/rest/v1/rest/v1/inquiries` 로 가서 404 가 나고 **문의가 조용히 저장되지 않는다.**
+> 끝 슬래시도 제거한다.
+>
+> - O `https://abcd1234.supabase.co`
+> - X `https://abcd1234.supabase.co/rest/v1/`
 
 ---
 
@@ -78,24 +86,33 @@ Vercel → Integrations → Supabase 를 프로젝트에 연결하면
 
 이 방법을 쓰더라도 아래 두 개는 **직접 넣어야 한다** (Supabase 소관이 아니다):
 
-| 변수 | 값 | 대상 환경 |
-|---|---|---|
-| `INQUIRY_IP_HASH_SALT` | `openssl rand -hex 32` 결과 | Production, Preview (**서로 다른 값**) |
-| `NEXT_PUBLIC_SITE_URL` | 실도메인 (`https://www.example.co.kr`) | Production |
+| 변수 | 값 | 타입 | 대상 환경 |
+|---|---|---|---|
+| `INQUIRY_IP_HASH_SALT` | `openssl rand -hex 32` 결과 | **Secret** | Production, Preview (**서로 다른 값**) |
+| `NEXT_PUBLIC_SITE_URL` | 실도메인 (`https://www.example.co.kr`) | **Config** | Production |
 
 **방법 B. 수동 입력**
 
 Vercel → Settings → Environment Variables 에 직접 넣는다.
 
-| 변수 | 값 | 환경 |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Project URL | Production, Preview |
-| `SUPABASE_SECRET_KEY` | `sb_secret_...` | Production, Preview (**환경별로 다른 키 권장**) |
-| `INQUIRY_IP_HASH_SALT` | `openssl rand -hex 32` | Production, Preview (서로 다른 값) |
-| `NEXT_PUBLIC_SITE_URL` | 실도메인 | Production |
+| 변수 | 값 | 타입 | 환경 |
+|---|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Project URL (**경로·끝 슬래시 없이 도메인만**) | **Config** | Production, Preview |
+| `SUPABASE_SECRET_KEY` | `sb_secret_...` | **Secret** | Production, Preview (**환경별로 다른 키 권장**) |
+| `INQUIRY_IP_HASH_SALT` | `openssl rand -hex 32` | **Secret** | Production, Preview (서로 다른 값) |
+| `NEXT_PUBLIC_SITE_URL` | 실도메인 | **Config** | Production |
 
-- **Sensitive 토글을 켠다** (`SUPABASE_SECRET_KEY`, `INQUIRY_IP_HASH_SALT`).
-  켜면 이후 대시보드에서 값을 다시 읽을 수 없어 유출 경로가 줄어든다.
+### 타입 선택 (Config / Secret)
+
+Vercel 은 변수마다 **Config** 또는 **Secret** 타입을 고르게 한다.
+[둘 다 빌드 타임에 읽히므로 동작에는 차이가 없고, 가시성만 다르다](https://vercel.com/docs/environment-variables) —
+Config 는 저장 후에도 값을 다시 볼 수 있고, Secret 은 write-only 가 되며 빌드 로그에서 마스킹된다.
+
+- **`NEXT_PUBLIC_` 접두어가 붙은 변수는 Config 로 등록한다.**
+  이 값들은 어차피 클라이언트 번들에 인라인되므로 Secret 으로 표시해도 실제로 비밀이 되지 않는다.
+  오히려 **값을 다시 확인할 수 없게 되어 오타(예: URL 에 `/rest/v1/` 가 붙었는지) 검증이 불가능**해진다.
+- **비밀값(`SUPABASE_SECRET_KEY`, `INQUIRY_IP_HASH_SALT`)은 Secret 으로 등록한다.**
+- ⚠️ **Secret 으로 저장한 변수는 Config 로 변경할 수 없다.** 잘못 골랐으면 삭제하고 다시 추가한다.
 - `NEXT_PUBLIC_` 접두어를 비밀키에 붙이면 **클라이언트 번들에 박혀 RLS 가 무력화된다.**
 
 ### 3-3. 함수 리전 — **대시보드에서 설정한다**
