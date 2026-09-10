@@ -248,8 +248,31 @@ Vercel 은 Node 18 배포를 이미 거부하고, [Node 20 도 2026-10-01 지원
 **검증**: 미설정 / 빈 문자열 / 잘못된 형식 / 정상값(끝 슬래시 포함) 4가지 모두 빌드 통과,
 sitemap 의 URL 에 `//` 없음. typecheck·lint 통과.
 
+**결과 확인**: `b07ac71` 배포 **Ready (56초)**. 이전 9회는 32~42초에 죽었는데
+`Collecting page data` 를 통과해 끝까지 갔다. PR #1 이 CI·Vercel·머지가능 모두 초록이 됐다.
+
 **반성**: 가설 두 개를 각각 푸시로 검증했고 둘 다 틀렸다. 로그 한 줄이 그 모든 추측보다
 결정적이었다. 로그 확보를 더 일찍·더 강하게 요구해야 했다. 자세한 교훈은 ADR-012.
+
+### Production 도메인 404 — 원인과 해결
+
+빌드가 고쳐진 뒤 사용자가 Production 주소에서 `404: DEPLOYMENT_NOT_FOUND` 를 만났다.
+(에러 ID 가 `icn1::` 로 시작 → 요청이 서울에서 처리됨, 즉 함수 리전 설정은 정상 적용됐다.)
+
+원인: **`main` 이 빈 초기 커밋**이라 파일이 하나도 없다. Vercel 은 `main` 으로 Production 을
+빌드하는데 빌드할 것이 없어 Error 로 끝나고, 그래서 Production 도메인에 서비스 중인 배포가 없다.
+
+| 배포 | 브랜치 | 환경 | 상태 |
+|---|---|---|---|
+| `b07ac71` | `claude/apple-style-homepage-iv3pxl` | Preview | Ready (56초) |
+| — | `main` | Production | Error (빌드할 파일 없음) |
+
+이는 ADR-011 의 부수 효과다. 저장소가 커밋 0개여서 PR base 를 만들기 위해 빈 커밋으로 `main` 을
+만들었고, 그 상태로는 Production 이 성립하지 않는다.
+
+**해결: PR #1 을 `main` 에 머지한다.** 머지 판단은 저장소 소유자 몫이므로 대기 중이다.
+급할 때의 임시 방편은 Ready 배포를 Promote to Production 하는 것이지만, `main` 이 비어 있는
+상태는 그대로라 다음 `main` 푸시에서 다시 실패한다.
 
 ### 다음에 할 일
 
