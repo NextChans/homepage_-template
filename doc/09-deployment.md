@@ -98,23 +98,17 @@ Vercel → Settings → Environment Variables 에 직접 넣는다.
   켜면 이후 대시보드에서 값을 다시 읽을 수 없어 유출 경로가 줄어든다.
 - `NEXT_PUBLIC_` 접두어를 비밀키에 붙이면 **클라이언트 번들에 박혀 RLS 가 무력화된다.**
 
-### 3-3. 함수 리전 — `vercel.json` 에 고정했다
+### 3-3. 함수 리전 — **대시보드에서 설정한다**
 
 문의 접수는 Server Action → Supabase 왕복이다. **Vercel 함수의 기본 리전은 `iad1`(버지니아)** 이므로
 그대로 두면 매 제출이 서울 DB ↔ 미국 함수를 왕복한다.
 
-`vercel.json` 에 서울을 고정해 두었다.
-
-```json
-{ "regions": ["icn1"] }
-```
-
+**Vercel → Settings → Functions → Function Region → Seoul (`icn1`)** 로 설정한다.
 `icn1` = Seoul (AWS `ap-northeast-2`) — Supabase 리전과 동일하다.
 
-- 대시보드 설정 대신 저장소에 둔 이유: 리뷰 가능하고, 리전이 바뀌면 diff 에 남는다 (ADR-011).
-- **요금제에 따라 함수 리전 선택이 제한될 수 있다.** 배포가 리전 문제로 거부되면
-  `vercel.json` 의 `regions` 를 지우고 대시보드 → Settings → Functions 에서 설정한다.
-  기능에는 영향이 없고 지연만 늘어난다.
+> `vercel.json` 에 `{"regions": ["icn1"]}` 로 고정해 봤으나 해당 커밋의 배포가 실패했다.
+> 원인을 로그로 확인하지 못한 상태에서 배포를 막아둘 수 없어 파일을 제거했다 (ADR-011 개정).
+> 기능에는 영향이 없고 **지연만 늘어난다.** 대시보드 설정을 잊지 말 것.
 
 ---
 
