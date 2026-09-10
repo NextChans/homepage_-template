@@ -847,3 +847,59 @@ storedHashShape: 'ok'` 였다. **아이디는 해결됐고 비밀번호만 남�
   **DB 에 적용해 실제로 파기가 일어나는지는 검증하지 못했다** — 이 환경에 Supabase
   접근이 없다. 적용 후 사용자 환경에서 사전 점검 쿼리(파기 대상 건수 미리 보기)와
   `select * from public.purge_expired_inquiries('manual')` 로 확인이 필요하다.
+
+---
+
+## ADR-022. "배포 실패" 가 아니라 **배포가 생성되지 않은 것**이었다 — 그리고 그 규칙에 해제 조건을 붙인다
+
+- **증상** PR #10 이 CI 통과·`main` 머지까지 끝났는데 **프로덕션이 옛 내용을 계속
+  서빙**했다. Vercel Deployments 에는 세 건이 있었지만 **전부 `Preview`** 였고
+  브랜치는 모두 작업 브랜치였다. `Production` 항목이 **아예 없었다.**
+
+- **원인** 머지 후 작업 브랜치를 `main` 의 HEAD 로 force-push 한 것. **Vercel 은
+  같은 커밋을 두 번 빌드하지 않는다.** 브랜치 push 가 먼저 도착하면 그 SHA 가
+  **Preview 로 선점**되고, 이후 `main` 이 같은 SHA 를 가리켜도 **Production 배포가
+  만들어지지 않는다.** 배포가 실패한 것이 아니라 **존재하지 않았다.**
+
+- **왜 두 번이나 놓쳤나** 이 세션에서 **초록 신호를 배포 성공으로 읽은 것이 두
+  번**이다(다른 프로젝트의 200 응답, 그리고 CI 통과). **CI 통과·200 응답·머지 완료는
+  모두 "프로덕션에 반영됐다" 를 뜻하지 않는다.** 확인해야 하는 것은
+  **`Production` 환경의 배포가 그 SHA 로 존재하는가** 하나다.
+
+- **결정 (1) 머지 직후 작업 브랜치를 push 하지 않는다.** 로컬에서만 `origin/main`
+  기준으로 다시 만든다.
+
+- **결정 (2) 단, 금지 규칙에 해제 조건을 명시한다.** 처음에는 "push 하지 않는다" 로만
+  적었는데, **해제 조건이 없는 금지는 stop hook(미푸시 커밋 경고)과 매번 교착된다.**
+  실제로 이 교착이 발생했다. 금지되는 것은 좁게 하나다 — **Production 배포가 생기기
+  전에 같은 SHA 를 Preview 로 선점하는 것.** 따라서 다음 중 하나면 push 해도 된다.
+  1. 머지 커밋의 **Production 배포가 이미 생성**되었다
+  2. push 할 커밋이 **머지 커밋과 다른 SHA** 다 (= 새 커밋이 생겼다)
+
+  확인은 GitHub Deployments API 로 한다(Vercel 토큰이 필요 없다):
+
+  ```sh
+  curl -sS "https://api.github.com/repos/NextChans/homepage_-template/deployments?sha=<merge-sha>" \
+    -H "Accept: application/vnd.github+json"
+  ```
+
+  `environment` 가 `Production` 인 항목이 있으면 위험은 지나갔다. 이 명령을
+  `CLAUDE.md` 규칙 6에 넣었다.
+
+- **결정 (3) stop hook 경고를 근거로 push 하지 않는다.** hook 은 브랜치 tip 만
+  비교하므로 **"이미 `origin/main` 에 있는 커밋"** 과 **"유실 위험이 있는 커밋"** 을
+  구분하지 못한다. `git log origin/main..HEAD` 가 비어 있으면 유실될 것이 없고,
+  그 경고는 **오탐**이다. 훅을 신뢰해 push 하면 결정 (1)이 막으려던 사고가 그대로
+  재발한다.
+
+- **대안** 작업 브랜치를 리셋하지 않고 계속 쓴다 — 이미 머지된 PR 에 커밋이 쌓이고,
+  base 가 낡아 다음 PR 의 diff 가 부풀어 채택하지 않았다.
+
+- **남는 위험** 이 프로젝트의 배포는 **Vercel 대시보드 설정에 의존**한다. Production
+  브랜치가 `main` 이 아니게 바뀌면 위 확인 절차가 통째로 무의미해진다. 배포가
+  이상하면 **먼저 Production 브랜치 설정을 본다.**
+
+- **검증** PR #12(`f7c4d43`)·PR #13(`141d567`) 머지 후 GitHub Deployments 를 조회해
+  **두 머지 커밋 모두 `environment=Production` 배포가 생성된 것을 확인**했다.
+  작업 브랜치 커밋(`e82ac34`)은 `Preview` 로 따로 잡혀 SHA 충돌이 없었다.
+  프로덕션 응답도 `<title>WITUS — …` 로 실제 변경을 반영했다.
