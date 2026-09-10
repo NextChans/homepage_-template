@@ -1049,10 +1049,29 @@ storedHashShape: 'ok'` 였다. **아이디는 해결됐고 비밀번호만 남�
   로컬·프리뷰가 다른 주소를 내보내고 설정 누락을 아무도 못 본다. 코드에 두면 PR 로
   검토되고 모든 환경에서 같다 — `content/features.ts` 가 플래그를 코드에 두는 것과
   같은 이유다.
-  - **우선순위는 그대로 뒀다**: `NEXT_PUBLIC_SITE_URL` → `VERCEL_PROJECT_PRODUCTION_URL`
-    → 기본값. 2번이 **도메인 전환을 자동으로 처리**한다. 도메인을 붙이기 전에는
-    `*.vercel.app` 이 들어오는데, 그 시점에는 **그게 사실이므로 오히려 맞다** — 아직
-    뜨지 않는 도메인을 canonical 로 내보내는 것보다 안전하다.
+  - ~~**우선순위는 그대로 뒀다**: `NEXT_PUBLIC_SITE_URL` →
+    `VERCEL_PROJECT_PRODUCTION_URL` → 기본값. 2번이 **도메인 전환을 자동으로
+    처리**한다.~~
+
+    > **정정 (2026-09-10, 실측)**: **이 가정은 틀렸다.** `VERCEL_PROJECT_PRODUCTION_URL`
+    > 은 커스텀 도메인을 따라오지 **않았다.** `witus.kr` 을 Production 에 연결하고
+    > 인증서 발급까지 끝나 `https://witus.kr` 이 정상 서빙되는 상태에서 **새
+    > Production 배포를 만들어 확인했는데도** 계속
+    > `homepage-template-ivory.vercel.app` 을 반환했다.
+    >
+    > 결과적으로 canonical·sitemap·og:image 가 **커스텀 도메인이 아니라 vercel.app 을
+    > 가리켰다** — canonical 로 막으려던 중복 색인 문제를 canonical 자신이 만드는
+    > 상태였다. 화면에는 아무 증상이 없어 **모르고 지나갈 수 있었다.**
+    >
+    > → **체인에서 제거했다.** 이제 `NEXT_PUBLIC_SITE_URL` → `DEFAULT_SITE_URL` 뿐이다.
+    > 도메인은 코드가 아는 사실이고, Vercel 이 어떤 별칭을 프로덕션으로 보는지는
+    > 우리가 통제할 수 없다. **되살리지 말 것.**
+    >
+    > 회귀 검증: `VERCEL_PROJECT_PRODUCTION_URL=homepage-template-ivory.vercel.app` 을
+    > 주고 빌드해도 canonical 이 `https://witus.kr/services` 로 나오는 것을 확인했다.
+    >
+    > ⚠️ 또한 **canonical·sitemap 은 빌드 시점에 구워진다.** 도메인 관련 변경은
+    > **재배포해야** 반영된다 — 대시보드만 만져서는 바뀌지 않는다.
   - `isPlaceholderSiteUrl` 을 제거했다. 기본값이 실도메인이 된 뒤로는 **항상 `false`**
     인 상수여서 이름이 거짓말을 한다. 쓰이는 곳도 없었다.
 

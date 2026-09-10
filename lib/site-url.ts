@@ -11,17 +11,26 @@ import 'server-only'
  *    hydration 불일치가 된다. `'server-only'` 로 그 경계를 빌드 타임에 강제한다.
  *
  * 우선순위:
- *  1. `NEXT_PUBLIC_SITE_URL`          — 명시 설정. 항상 이긴다. 정규 도메인을
- *     강제해야 할 때만 쓴다(예: apex 가 아닌 `www` 를 정규로 삼는 경우).
- *  2. `VERCEL_PROJECT_PRODUCTION_URL` — Vercel 이 프리뷰 배포에도 항상 주입하는
- *     **프로젝트의 프로덕션 도메인.** 스킴이 없으므로 `https://` 를 붙인다.
- *     ⚠️ **이것이 도메인 전환을 자동으로 처리한다.** Vercel 에 `witus.kr` 을
- *        프로덕션 도메인으로 붙이면 이 값이 `witus.kr` 로 바뀌고 sitemap·OG·
- *        canonical 이 따라온다. 환경변수를 따로 설정할 필요가 없다.
- *        도메인을 붙이기 전에는 `*.vercel.app` 이 들어오는데, 그 시점에는 그게
- *        **사실이므로** 오히려 맞다 — 아직 뜨지 않는 도메인을 canonical 로
- *        내보내는 것보다 안전하다.
- *  3. `DEFAULT_SITE_URL` — 로컬 개발 등 위 둘이 없을 때.
+ *  1. `NEXT_PUBLIC_SITE_URL` — 명시 설정. 항상 이긴다. 정규 도메인을 일시적으로
+ *     바꿔야 할 때만 쓴다(예: 도메인 이전 중).
+ *  2. `DEFAULT_SITE_URL`     — 정규 도메인. 평소 쓰이는 값이다.
+ *
+ * ## ⚠️ `VERCEL_PROJECT_PRODUCTION_URL` 을 **쓰지 않는다** — 실측으로 확인했다
+ *
+ * 원래는 2순위로 두고 "커스텀 도메인을 붙이면 이 값이 따라오므로 환경변수가
+ * 불필요하다" 고 설계했다. **그 가정은 틀렸다.**
+ *
+ * `witus.kr` 을 Production 에 연결하고 인증서까지 발급되어 `https://witus.kr` 이
+ * 정상 서빙되는 상태에서 **새 Production 배포를 만들어 확인했는데도** 이 변수는
+ * 계속 `homepage-template-ivory.vercel.app` 을 반환했다. 그 결과 canonical 과
+ * sitemap 이 **커스텀 도메인이 아니라 vercel.app 을 가리켰다** — canonical 로 막으려던
+ * 중복 색인 문제를 canonical 자신이 만드는 상태다.
+ *
+ * 그래서 이 변수를 체인에서 **제거했다.** 도메인은 코드가 아는 사실이고, Vercel 이
+ * 어떤 별칭을 프로덕션으로 보는지는 우리가 통제할 수 없다.
+ *
+ * ⚠️ **되살리지 말 것.** 되살리면 canonical·sitemap·OG 가 조용히 vercel.app 으로
+ *    돌아가고, 화면에는 아무 증상이 없어 알아채지 못한다. (ADR-025 정정)
  *
  * ⚠️ 빈 문자열을 반드시 걸러야 한다. `??` 는 null/undefined 만 폴백하므로 빈 값이
  *    그대로 통과하면 `new URL('')` 이 TypeError 를 던져 **빌드가 깨진다**.
@@ -29,12 +38,15 @@ import 'server-only'
  */
 
 /**
- * 정규(canonical) 도메인. **apex 를 정규로 삼는다** — `www` 는 여기로 301 한다
- * (Vercel 대시보드 설정, ADR-025).
+ * 정규(canonical) 도메인. **apex 를 정규로 삼는다** — `www` 와 `*.vercel.app` 은
+ * 여기로 리다이렉트한다 (Vercel 대시보드 설정, ADR-025).
  *
  * 코드에 박아 두는 이유: 도메인은 환경별 비밀값이 아니라 **프로젝트의 사실**이다.
  * 대시보드에만 있으면 로컬·프리뷰에서 sitemap·OG 가 다른 주소를 내보내고, 설정
  * 누락을 아무도 못 본다. 코드에 두면 PR 로 검토되고 모든 환경에서 같다.
+ *
+ * 프리뷰 배포도 이 값을 쓴다 — **의도한 것이다.** 프리뷰는 인증으로 보호되어
+ * 색인되지 않으므로, canonical 이 프로덕션을 가리키는 것이 맞다.
  */
 const DEFAULT_SITE_URL = 'https://witus.kr'
 
@@ -58,10 +70,7 @@ function normalize(raw: string | undefined): string | null {
   }
 }
 
-export const siteUrl: string =
-  normalize(process.env.NEXT_PUBLIC_SITE_URL) ??
-  normalize(process.env.VERCEL_PROJECT_PRODUCTION_URL) ??
-  DEFAULT_SITE_URL
+export const siteUrl: string = normalize(process.env.NEXT_PUBLIC_SITE_URL) ?? DEFAULT_SITE_URL
 
 // `isPlaceholderSiteUrl` 은 제거했다. 기본값이 실도메인이 된 뒤로는 **항상 false** 인
 // 상수여서, 이름만 보고 "플레이스홀더 감지가 동작한다" 고 오해하게 만든다.

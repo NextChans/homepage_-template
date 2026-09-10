@@ -136,16 +136,26 @@ Config 는 저장 후에도 값을 다시 볼 수 있고, Secret 은 write-only 
 
 **코드는 이미 준비되어 있다.** 남은 것은 **대시보드 + DNS 작업**이고, 그건 사람이 해야 한다.
 
-#### 코드가 어떻게 따라오는가
+#### 코드가 어떻게 정규 도메인을 정하는가
 
-`lib/site-url.ts` 의 우선순위 2번(`VERCEL_PROJECT_PRODUCTION_URL`)이 **Vercel 이 주입하는
-프로젝트의 프로덕션 도메인**이다. 도메인을 프로덕션으로 붙이면 이 값이 바뀌고
-`sitemap.xml` · `robots.txt` · `og:image` · `canonical` 이 **전부 자동으로** 따라온다.
-**환경변수를 따로 설정하지 않아도 된다.**
+`lib/site-url.ts` 의 `DEFAULT_SITE_URL = 'https://witus.kr'` 상수다. `sitemap.xml` ·
+`robots.txt` · `og:image` · `canonical` 이 모두 이 값을 쓴다.
+**환경변수를 설정할 필요가 없다.**
 
-> ⚠️ 단, 이 동작을 **확인은 해야 한다.** 도메인 연결 후 `/sitemap.xml` 이 여전히
-> `*.vercel.app` 이면, `NEXT_PUBLIC_SITE_URL=https://witus.kr` 를 Vercel 환경변수
-> (Production)에 명시하고 재배포한다. 우선순위 1번이라 항상 이긴다.
+> ⚠️ **`VERCEL_PROJECT_PRODUCTION_URL` 은 쓰지 않는다.** 원래는 "커스텀 도메인을 붙이면
+> 이 값이 따라온다" 고 설계했는데 **실측 결과 틀렸다.** `witus.kr` 이 Production 에
+> 연결되고 인증서까지 발급된 뒤 **새 Production 배포를 만들어도** 이 변수는 계속
+> `homepage-template-ivory.vercel.app` 을 반환했고, canonical·sitemap 이 커스텀
+> 도메인이 아니라 vercel.app 을 가리켰다. 그래서 체인에서 제거했다(ADR-025 정정).
+>
+> **되살리지 말 것** — 되살리면 canonical 이 조용히 vercel.app 으로 돌아가고
+> 화면에는 아무 증상이 없다.
+
+⚠️ **canonical·sitemap 은 빌드 시점에 HTML 로 구워진다.** 도메인 관련 코드를 바꾸면
+**재배포해야** 반영된다. 배포 없이 대시보드만 만져서는 바뀌지 않는다.
+
+정규 도메인을 바꿔야 하면 `DEFAULT_SITE_URL` 을 고친다(PR 로 검토된다). 긴급히
+환경변수로만 덮어야 하면 `NEXT_PUBLIC_SITE_URL` 이 우선순위 1번이라 항상 이긴다.
 
 #### 정규 도메인은 **apex(`witus.kr`)** 다
 
