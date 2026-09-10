@@ -16,6 +16,17 @@
 | `email` | text | 5–160자 | 소문자 정규화 후 저장 |
 | `phone` | text | 8–24자 | |
 | `service_slug` | text | enum 체크 | 서비스 6종 + `other`. 추가 시 마이그레이션으로 제약을 함께 넓힌다 |
+
+### 관련 테이블
+
+| 테이블 | 용도 | 접근 |
+|---|---|---|
+| `inquiries` | 상담 문의 (개인정보) | RLS on · 정책 0개 |
+| `inquiry_status_history` | 처리 상태 변경 이력 (append-only, 문의 삭제 시 cascade) | 동일 |
+| `admin_audit_log` | 관리자 콘솔 행위 감사 (FK 없음 → 대상 삭제 후에도 보존) | 동일 |
+| `admin_users` | 관리자 콘솔 계정 (scrypt 해시만, 역할 admin/agent) | 동일 |
+
+**전부 `service_role` 전용이다.** anon/authenticated 는 어떤 테이블에도 접근할 수 없다.
 | `message` | text | 10–2000자 | |
 | `privacy_consent` | boolean | **`check (privacy_consent)`** | false 는 저장 불가 |
 | `marketing_consent` | boolean | default false | 선택 동의 |

@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { logout } from './actions'
 import { Container } from '@/components/ui'
-import { getAdminSession } from '@/lib/admin/auth'
+import { ROLE_LABEL, can } from '@/lib/admin/roles'
+import { getAdminSession } from '@/lib/admin/session'
 import { site } from '@/content/site'
 
 /** 관리자 영역은 어떤 경우에도 캐시하지 않는다. 쿠키(세션)를 읽는다. */
@@ -27,11 +28,43 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 <Link href="/admin" className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
                   {site.name} 관리자
                 </Link>
-                <span className="font-mono text-[11px] text-ink-muted">상담 문의</span>
+                <nav className="flex items-center gap-3 text-[13px]">
+                  <Link href="/admin" className="text-ink-muted transition-colors hover:text-ink">
+                    문의
+                  </Link>
+                  {can(session.role, 'user.manage') ? (
+                    <Link
+                      href="/admin/users"
+                      className="text-ink-muted transition-colors hover:text-ink"
+                    >
+                      계정
+                    </Link>
+                  ) : null}
+                  {can(session.role, 'audit.read') ? (
+                    <Link
+                      href="/admin/audit"
+                      className="text-ink-muted transition-colors hover:text-ink"
+                    >
+                      감사 로그
+                    </Link>
+                  ) : null}
+                </nav>
               </div>
               <div className="flex items-center gap-4">
-                <span className="hidden text-[13px] text-ink-muted sm:inline">
-                  {session.username}
+                <span className="hidden items-baseline gap-2 text-[13px] text-ink-muted sm:inline-flex">
+                  <Link href="/admin/password" className="transition-colors hover:text-ink">
+                    {session.username}
+                  </Link>
+                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-ink">
+                    {ROLE_LABEL[session.role]}
+                  </span>
+                  {/* 비상 복구 계정으로 들어와 있다는 사실을 화면에 계속 보여준다.
+                      일상 업무를 이 계정으로 하고 있으면 즉시 알아차려야 한다. */}
+                  {session.isBootstrap ? (
+                    <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-white">
+                      비상 복구 계정
+                    </span>
+                  ) : null}
                 </span>
                 <form action={logout}>
                   <button

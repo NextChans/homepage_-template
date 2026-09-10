@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { LoginForm } from '@/components/admin/login-form'
 import { Container } from '@/components/ui'
-import { getAdminSession, isAdminConfigured } from '@/lib/admin/auth'
+import { isAdminConfigured } from '@/lib/admin/auth'
+import { getAdminSession } from '@/lib/admin/session'
 import { site } from '@/content/site'
 
 export const metadata: Metadata = {

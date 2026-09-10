@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Container } from '@/components/ui'
 import { services } from '@/content/services'
 import { auditContext, logAdminAction } from '@/lib/admin/audit'
+import { formatDateTime } from '@/lib/admin/format'
 import { requireAdminSession } from '@/lib/admin/guard'
 import { listInquiries } from '@/lib/admin/inquiries'
 import { CHANNEL_LABEL, STATUS_LABEL, isInquiryStatus, isIntakeChannel } from '@/lib/admin/status'
@@ -20,17 +21,6 @@ const serviceLabel = new Map<string, string>([
   ...services.map((s) => [s.slug, s.name] as [string, string]),
   ['other', '기타 문의'],
 ])
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 export default async function AdminInquiriesPage() {
   const session = await requireAdminSession()
@@ -114,7 +104,7 @@ export default async function AdminInquiriesPage() {
               {rows.map((row) => (
                 <tr key={row.id} className="border-b border-hairline">
                   <td className="whitespace-nowrap px-3 py-3 font-mono text-[12px] tabular-nums text-ink-muted">
-                    {formatDate(row.createdAt)}
+                    {formatDateTime(row.createdAt)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 text-ink-muted">
                     {isIntakeChannel(row.intakeChannel)
