@@ -274,6 +274,63 @@ sitemap 의 URL 에 `//` 없음. typecheck·lint 통과.
 급할 때의 임시 방편은 Ready 배포를 Promote to Production 하는 것이지만, `main` 이 비어 있는
 상태는 그대로라 다음 `main` 푸시에서 다시 실패한다.
 
+### 머지 후 Production 검증 (2026-09-10)
+
+PR #1 을 `main` 에 머지(`014909e`, merge commit). `main` 파일 수 0 → 59.
+Production 주소는 **https://homepage-template-ivory.vercel.app** 이다.
+
+> ⚠️ `homepage-template.vercel.app` 은 **다른 계정의 프로젝트**(제목 `DIGITLEX`)다.
+> 프로젝트 이름이 전역 선점되어 있어 짧은 도메인을 받지 못했다. 상태 코드 200 만 보고
+> 성공으로 판단했다가 내용 확인에서 틀린 것을 발견했다 — **응답 코드가 아니라 내용을
+> 확인해야 한다.**
+
+**검증 결과 (읽기 전용)**
+
+| 항목 | 결과 |
+|---|---|
+| 제목 | `넥스트챈스 — 결제 인프라의 처음부터 끝까지` |
+| 라우트 12개 (`/` · 서비스 5 · about · contact · privacy · sitemap · robots) | 전부 200 |
+| 없는 경로 | 404 |
+| 개발용 안내 배너 | 미노출 (ADR-010 동작 확인) |
+| **비밀값 유출 스캔** | JS/CSS 13개 자산 + 페이지 HTML 800KB 전수 검사 — `sb_secret_` · `service_role` · `SUPABASE_SECRET_KEY` · `INQUIRY_IP_HASH_SALT` · JWT 서명 패턴 **모두 0건**. `supabase.co` 조차 클라이언트에 없다(서버에서만 사용) |
+
+**발견한 문제**: `sitemap.xml` · `robots.txt` 의 절대 URL 이 플레이스홀더
+`https://www.example.co.kr` 로 나갔다. ADR-012 는 빌드 깨짐만 막았고 **조용히 틀린 SEO
+데이터**는 그대로였다. → ADR-013 으로 `lib/site-url.ts`(server-only) 분리 +
+`VERCEL_PROJECT_PRODUCTION_URL` 자동 사용으로 해결.
+
+**폼 제출(D-2·D-3·D-5)은 사용자가 직접 완료**했다. 프로덕션 DB 에 쓰는 동작이라 내가
+임의로 실행하지 않았다.
+
+### 컴플라이언스 리스크 정리 — 폼·방침 비활성, 수치 치환 (2026-09-10)
+
+사용자 지시: 근거 없는 수치는 플레이스홀더로, 방침은 비공개(기록은 보존), 상담 접수는
+내리고 전화·이메일로만, Slack 알림은 구성만.
+
+**삭제가 아니라 기능 플래그**로 구성했다 (`content/features.ts`). 재활성화가 한 줄이다.
+
+| 변경 | 내용 |
+|---|---|
+| `content/features.ts` | 신규. `inquiryForm` / `privacyPolicy`. 코드 상수 + `boolean` 타입 명시 |
+| `content/site.ts`, `app/page.tsx`, `app/about/page.tsx` | 실적 수치·연혁을 `XXX+` `X,XXX대` `OO` `OOOO` 로 치환 |
+| `app/contact/page.tsx` | 폼 대신 전화·이메일 안내 + "이렇게 알려주시면 빠릅니다" 3항목 |
+| `app/actions/inquiry.ts` | **첫 줄에서 플래그 검사해 차단** (UI 우회 POST 방어) + 접수 알림 호출 |
+| `app/privacy/page.tsx` | 플래그 꺼지면 `notFound()`. 내용은 보존 |
+| `components/site-footer.tsx`, `app/sitemap.ts`, `app/robots.ts` | 비공개 페이지를 링크·색인에서 제외 |
+| `lib/notify/slack.ts` | 신규. 웹훅 미설정 시 무동작, 실패해도 throw 안 함, **개인정보 미포함** |
+
+**시행착오 2건**
+1. `prettier --write` 를 무심코 돌려 파일이 저장소 스타일(단일 인용부호·세미콜론 없음)과
+   다르게 재포맷됐다. 저장소에 prettier 설정이 없어 기본값이 적용된 것. `git checkout` 으로
+   복원하고 수동 편집했다. → **설정 없는 포매터를 돌리지 않는다.**
+2. 폼 JS(31.8kB)를 번들에서 떼려고 서버 컴포넌트에서 `await import()` 로 바꿨으나
+   **효과가 없었다**(Next 의 클라이언트 참조 그래프에 남는다). 실측으로 확인하고
+   되돌렸다. 목적을 달성하지 못한 변경을 남기지 않는다. 알려진 비용으로 문서화(ADR-014).
+
+**검증**: typecheck·lint·build 통과. 실제 서버 기동 후 `/contact` input/textarea 0개,
+'전화 걸기' 노출, `/privacy` 404, sitemap 에서 `/privacy` 제외, robots disallow 제거,
+빌드 산출물에 Server Action 차단 코드 포함 확인.
+
 ### 다음에 할 일
 
 1. `doc/05-content-guide.md` 의 **필수 교체** 항목 (실제 회사 정보)

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { features } from '@/content/features'
 import { company, nav, site } from '@/content/site'
 import { services } from '@/content/services'
 import { Container } from './ui'
@@ -37,14 +38,16 @@ export function SiteFooter() {
                   </Link>
                 </li>
               ))}
-              <li>
-                <Link
-                  href="/privacy"
-                  className="text-[13px] text-ink-muted transition-colors duration-300 hover:text-ink"
-                >
-                  개인정보처리방침
-                </Link>
-              </li>
+              {features.privacyPolicy ? (
+                <li>
+                  <Link
+                    href="/privacy"
+                    className="text-[13px] text-ink-muted transition-colors duration-300 hover:text-ink"
+                  >
+                    개인정보처리방침
+                  </Link>
+                </li>
+              ) : null}
             </ul>
           </div>
 

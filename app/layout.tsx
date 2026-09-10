@@ -2,10 +2,11 @@ import type { Metadata, Viewport } from 'next'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { site } from '@/content/site'
+import { siteUrl } from '@/lib/site-url'
 import './globals.css'
 
 export const metadata: Metadata = {
-  metadataBase: new URL(site.url),
+  metadataBase: new URL(siteUrl),
   title: {
     default: `${site.name} — ${site.tagline}`,
     template: `%s — ${site.name}`,
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: site.locale,
-    url: site.url,
+    url: siteUrl,
     siteName: site.name,
     title: `${site.name} — ${site.tagline}`,
     description: site.description,

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import { Container, Section } from '@/components/ui'
+import { features } from '@/content/features'
 import { company, site } from '@/content/site'
 
 export const metadata: Metadata = {
@@ -74,6 +76,16 @@ const sections = [
 ]
 
 export default function PrivacyPage() {
+  /**
+   * 초안 상태라 비공개다 (`features.privacyPolicy`).
+   * 내용은 아래에 그대로 보존되어 있고, 확정해야 할 항목은
+   * `doc/06-security-compliance.md` 에 정리되어 있다.
+   *
+   * ⚠️ 문의 폼(`features.inquiryForm`)을 켜면 이 플래그도 반드시 함께 켠다.
+   *    개인정보를 수집하면서 처리방침을 공개하지 않는 것은 위반이다.
+   */
+  if (!features.privacyPolicy) notFound()
+
   return (
     <Section>
       <Container>

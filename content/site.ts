@@ -6,35 +6,6 @@
  *    전자금융 관련 광고성 표현은 교체 시 준법감시(컴플라이언스) 검토 필수.
  */
 
-/** NEXT_PUBLIC_SITE_URL 미설정·오설정 시 사용할 기본값. */
-const FALLBACK_SITE_URL = 'https://www.example.co.kr'
-
-/**
- * 사이트 절대 URL 을 검증해 항상 유효한 값만 내보낸다.
- *
- * ⚠️ 빈 문자열을 반드시 걸러야 한다. `?? ` 는 null/undefined 만 폴백하므로
- *    NEXT_PUBLIC_SITE_URL="" 인 환경에서는 빈 문자열이 그대로 통과하고,
- *    app/layout.tsx 의 `new URL(site.url)` 이 TypeError: Invalid URL 을 던져
- *    **빌드가 깨진다**(Collecting page data 단계에서 /_not-found 실패).
- *
- *    로컬·CI 는 변수가 아예 없어서(undefined) 통과하지만 Vercel 은 빈 값을
- *    주입하므로, 이 차이가 "CI 통과 · Vercel 배포 실패" 로 나타났다.
- *    Vercel 배포 9회 연속 실패의 실제 원인이다. (ADR-012)
- */
-function resolveSiteUrl(raw: string | undefined): string {
-  const candidate = raw?.trim()
-  if (!candidate) return FALLBACK_SITE_URL
-
-  try {
-    const parsed = new URL(candidate)
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return FALLBACK_SITE_URL
-    // 끝 슬래시를 제거한다. sitemap 등에서 `${site.url}${path}` 로 이어붙일 때 '//' 방지.
-    return `${parsed.origin}${parsed.pathname.replace(/\/$/, '')}`
-  } catch {
-    return FALLBACK_SITE_URL
-  }
-}
-
 export const site = {
   name: '넥스트챈스',
   nameEn: 'NEXTCHANS',
@@ -42,7 +13,8 @@ export const site = {
   tagline: '결제 인프라의 처음부터 끝까지',
   description:
     '밴 단말기 공급, PG 영업대행, 전자금융업 등록, 금융 클라우드 이용등록, 금융결제원 오픈뱅킹 연동까지. 결제 사업에 필요한 모든 절차를 한 팀이 끝냅니다.',
-  url: resolveSiteUrl(process.env.NEXT_PUBLIC_SITE_URL),
+  // 절대 URL 은 여기 두지 않는다 — 이 모듈은 클라이언트 컴포넌트도 import 한다.
+  //   → lib/site-url.ts (server-only) 의 `siteUrl` 을 쓴다.
   locale: 'ko_KR',
 } as const
 
@@ -63,12 +35,19 @@ export const nav = [
   { href: '/contact', label: '문의' },
 ] as const
 
-/** 홈 상단 신뢰 지표. 실제 수치로 교체 전까지 대외 공개 금지. */
+/**
+ * 홈 상단 신뢰 지표.
+ *
+ * ⚠️ 값이 `XXX` / `OO` 인 것은 **근거 자료가 없어 플레이스홀더로 치환한 것**이다.
+ *    구체적인 숫자를 근거 없이 게재하면 표시광고법 리스크가 된다(허위·과장 광고).
+ *    근거(계약 건수 대장, 설치 대장, 실적 집계 등)를 확보한 항목만 실제 숫자로
+ *    바꾸고, 확보하지 못한 항목은 **숫자를 만들지 말고 이 배열에서 제거**한다.
+ */
 export const metrics = [
-  { value: '320+', label: '누적 구축 프로젝트' },
-  { value: '12,000대', label: '단말기 설치·운영' },
-  { value: '90일', label: '평균 등록 소요' },
-  { value: '24/7', label: '장애 대응 체계' },
+  { value: 'XXX+', label: '누적 구축 프로젝트' },
+  { value: 'X,XXX대', label: '단말기 설치·운영' },
+  { value: 'XX일', label: '평균 등록 소요' },
+  { value: 'OO', label: '장애 대응 체계' },
 ] as const
 
 export const partnerLogos = [

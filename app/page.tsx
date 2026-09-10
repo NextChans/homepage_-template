@@ -40,7 +40,7 @@ export default function HomePage() {
             </ButtonLink>
           </>
         }
-        meta="첫 회신까지 평균 1영업일"
+        meta="전화·이메일로 문의를 받습니다"
       />
 
       <MetricsBand />
@@ -65,10 +65,11 @@ export default function HomePage() {
           ]}
           panel={
             <PanelStats
+              // ⚠️ 근거 자료 확보 전까지 플레이스홀더. content/site.ts 의 metrics 주석 참고.
               rows={[
-                { label: '평균 등록 소요', value: '90일' },
-                { label: '보완 요청 대응', value: '3영업일' },
-                { label: '오픈 일정 준수율', value: '96%' },
+                { label: '평균 등록 소요', value: 'XX일' },
+                { label: '보완 요청 대응', value: 'X영업일' },
+                { label: '오픈 일정 준수율', value: 'XX%' },
               ]}
             />
           }
@@ -94,10 +95,11 @@ export default function HomePage() {
           ]}
           panel={
             <PanelStats
+              // ⚠️ 근거 자료 확보 전까지 플레이스홀더.
               rows={[
-                { label: '일일 정산 대조', value: '자동' },
-                { label: '거래 로그 보존', value: '5년' },
-                { label: '장애 대응', value: '24/7' },
+                { label: '일일 정산 대조', value: 'OO' },
+                { label: '거래 로그 보존', value: 'X년' },
+                { label: '장애 대응', value: 'OO' },
               ]}
             />
           }
