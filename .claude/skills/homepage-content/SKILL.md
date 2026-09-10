@@ -1,6 +1,6 @@
 ---
 name: homepage-content
-description: 이 홈페이지 템플릿의 콘텐츠(서비스 항목, 회사 정보, 지표, 파트너, 문안)를 추가·수정·삭제한다. 사용자가 "서비스 추가해줘", "밴 단말기 설명 바꿔줘", "회사 정보 실제 값으로 교체", "지표 수정", "새 서비스 페이지 만들어줘", "FAQ 추가" 등을 말할 때 사용한다. 콘텐츠는 코드가 아니라 content/ 하위 데이터 모듈에만 존재하므로, 페이지 컴포넌트를 직접 고치기 전에 반드시 이 스킬을 먼저 확인한다.
+description: 이 홈페이지 템플릿의 콘텐츠(서비스 항목, 회사 정보, 지표, 파트너, 문안)를 추가·수정·삭제한다. 사용자가 "서비스 추가해줘", "밴 단말기 설명 바꿔줘", "회사 정보 실제 값으로 교체", "지표 수정", "새 서비스 페이지 만들어줘", "FAQ 추가", "로고 바꿔줘", "파비콘 만들어줘", "OG 이미지 수정" 등을 말할 때 사용한다. 콘텐츠는 코드가 아니라 content/ 하위 데이터 모듈에만 존재하므로, 페이지 컴포넌트를 직접 고치기 전에 반드시 이 스킬을 먼저 확인한다.
 ---
 
 # 콘텐츠 변경 절차
@@ -20,6 +20,8 @@ description: 이 홈페이지 템플릿의 콘텐츠(서비스 항목, 회사 �
 | 홈 전용 문안(히어로, 두 개의 FeatureSplit, 여정 4단계) | `app/page.tsx` 상수 및 JSX |
 | 회사소개 원칙·연혁 | `app/about/page.tsx` 상수 |
 | 개인정보처리방침 | `app/privacy/page.tsx` → `sections` |
+| 로고 심볼 도형·아이덴티티 색 | `content/brand.ts` → `SHIELD_PATH`, `brandColors` |
+| 기능 플래그(폼·처리방침·Analytics) | `content/features.ts` → `features` |
 
 ## 2. 서비스 항목을 추가할 때
 
@@ -73,7 +75,47 @@ description: 이 홈페이지 템플릿의 콘텐츠(서비스 항목, 회사 �
 
 변경 후에는 `doc/05-content-guide.md` 의 교체 체크리스트를 갱신한다.
 
-## 5. 마무리
+## 5. 로고·파비콘·OG 이미지를 건드릴 때
+
+**심볼 도형은 `content/brand.ts` 의 `SHIELD_PATH` 한 곳에만 있다.** 화면 컴포넌트
+(`components/brand-mark.tsx`)와 자산 생성 스크립트가 **같은 값을 읽는다.**
+
+```bash
+# 도형·색을 고친 뒤 반드시 실행 — 아이콘 3종을 다시 만든다
+node scripts/generate-brand-assets.mjs
+```
+
+### ⚠️ 하지 말 것 4가지
+
+1. **`app/icon.svg` / `app/apple-icon.png` / `app/opengraph-image.png` 를 손으로
+   고치지 않는다.** 스크립트 생성물이라 다음 실행에서 덮어써진다. 도형을 고치려면
+   `content/brand.ts` 를 고친다.
+2. **`fill-rule="evenodd"` 를 빼지 않는다.** 사선 2개가 서브패스로 들어 있고 evenodd
+   가 그것을 **구멍**으로 만든다. 빼면 사선이 사라져 방패만 남는다.
+3. **사선 좌표를 방패 밖으로 내보내지 않는다.** evenodd 는 도형 밖 부분을 잘라주지
+   않고 **거기까지 칠한다.** 경계와 여백 최소 2.4 를 유지한다.
+4. **골드(`brandColors.gold`)를 화면 UI 에 쓰지 않는다.** 흰 배경 대비비가 **2.25:1**
+   로 WCAG AA(본문 4.5:1, UI 3:1)에 미달한다. 파비콘·앱아이콘·OG 같은 **래스터
+   자산에만** 쓴다. 화면 심볼은 `currentColor` 다(ADR-023 팔레트 (A)안).
+
+### 사선을 늘리고 싶다면
+
+**16px 파비콘에서 확인하고 결정한다.** 3개는 뭉갠다 — 그래서 2개다.
+
+```bash
+node -e "const s=require('sharp');const fs=require('fs');
+s(fs.readFileSync('app/icon.svg')).resize(16,16).png().toFile('/tmp/i.png')
+ .then(()=>s('/tmp/i.png').resize(160,160,{kernel:'nearest'}).png().toFile('/tmp/iz.png'))"
+# /tmp/iz.png 를 읽어서 눈으로 확인한다
+```
+
+### OG 이미지에 워드마크를 넣으려면
+
+**브랜드 서체 파일을 저장소에 커밋해야 한다.** 이 환경에는 DejaVu Sans 밖에 없어
+잘못된 서체가 PNG 에 **영구히 굽힌다.** 폰트의 웹·임베딩 라이선스를 먼저 확인한다.
+현재는 심볼만 두고, 사명은 OG 카드의 **제목 텍스트**로 노출한다.
+
+## 6. 마무리
 
 - `npm run typecheck && npm run lint && npm run build`
 - 문안 변경이 레이아웃을 깨뜨리지 않았는지 `homepage-verify` 스킬로 확인한다.
