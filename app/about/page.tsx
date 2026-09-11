@@ -8,7 +8,7 @@ import { company, site } from '@/content/site'
 
 export const metadata: Metadata = {
   title: '회사소개',
-  description: `${site.legalName} 는 결제 인프라 구축과 전자금융 규제 대응을 함께 수행하는 팀입니다.`,
+  description: `${site.legalName} 는 결제 인프라 도입과 전자금융 규제 대응을 함께 진행하는 팀입니다.`,
 }
 
 /** ⚠️ 임시 문안. 실제 연혁·조직 정보로 교체할 것. */
@@ -48,10 +48,10 @@ export default function AboutPage() {
           <>
             규제를 아는
             <br />
-            엔지니어링 팀.
+            현장 팀.
           </>
         }
-        lede={`${site.legalName} 는 결제 인프라 구축과 전자금융 규제 대응을 한 팀에서 수행합니다. 법무와 개발 사이에서 일정이 끊기지 않게 만드는 것이 우리의 일입니다.`}
+        lede={`${site.legalName} 는 결제 인프라 도입과 전자금융 규제 대응을 한 창구에서 진행합니다. 법무·개발사·심사 기관 사이에서 일정이 끊기지 않게 만드는 것이 우리의 일입니다.`}
       />
 
       <MetricsBand />
