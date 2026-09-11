@@ -68,7 +68,7 @@ export const nav = [
  *    바꾸고, 확보하지 못한 항목은 **숫자를 만들지 말고 이 배열에서 제거**한다.
  */
 export const metrics = [
-  { value: 'XXX+', label: '누적 구축 프로젝트' },
+  { value: 'XXX+', label: '누적 진행 프로젝트' },
   { value: 'X,XXX대', label: '단말기 설치·운영' },
   { value: 'XX일', label: '평균 등록 소요' },
   { value: 'OO', label: '장애 대응 체계' },
